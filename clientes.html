@@ -1,0 +1,513 @@
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>CRM Analytics | Clientes Nuevos · Fidelizados · Churn | Repuestos VZLA</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{primary:'#D32F2F',dark:'#0f172a'}}}};</script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', system-ui, sans-serif; }
+    .scrollable-table { max-height: 420px; overflow-y: auto; scrollbar-width: thin; }
+    .scrollable-table table { width: 100%; border-collapse: collapse; }
+    .scrollable-table th { position: sticky; top: 0; background: #f1f5f9; z-index: 10; }
+    .kpi-card { transition: all 0.2s; cursor: pointer; }
+    .kpi-card.active-kpi-filter { ring: 2px solid #D32F2F; transform: scale(1.01); box-shadow: 0 8px 20px rgba(211,47,47,0.2); border-color: #D32F2F; }
+  </style>
+
+
+
+  <header class="bg-white border-b-4 border-primary shadow-md sticky top-0 z-50 px-5 md:px-8 py-4 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <div class="bg-primary/10 p-2 rounded-xl"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#D32F2F" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>
+      <div><h1 class="text-2xl font-black tracking-tight text-slate-800">Repuestos <span class="text-primary">Chinos VZLA</span></h1><p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">CRM ANALYTICS · INTELIGENCIA DE CLIENTES</p></div>
+    </div>
+    <div class="flex items-center gap-2 bg-slate-100 rounded-full px-4 py-2"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400"></span><span class="relative rounded-full h-2 w-2 bg-green-500"></span></span><span class="text-xs font-medium text-slate-700" id="liveStatus">Conectando datos</span></div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-7">
+    
+    
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-5">
+      <div class="flex flex-wrap items-center gap-4 justify-between">
+        <div class="flex items-center gap-2 text-primary font-bold text-sm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"></rect></svg> Tienda:</div>
+        <div class="flex flex-wrap gap-2" id="storeFiltersGroup">
+          <button data-store="ALL" class="store-filter-btn bg-primary text-white shadow-md px-4 py-2 rounded-lg text-sm font-bold">Todas</button>
+          <button data-store="PAV" class="store-filter-btn bg-slate-100 text-slate-700 px-4 py-2 rounded-lg text-sm font-bold">Aviadores (PAV)</button>
+          <button data-store="SJ" class="store-filter-btn bg-slate-100 text-slate-700 px-4 py-2 rounded-lg text-sm font-bold">San Jacinto (SJ)</button>
+          <button data-store="BQ" class="store-filter-btn bg-slate-100 text-slate-700 px-4 py-2 rounded-lg text-sm font-bold">Barquisimeto (BQ)</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 border-t pt-4 border-slate-100">
+        <div class="col-span-1 flex items-center gap-2 font-semibold text-slate-600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle></svg> Segmento cliente:</div>
+        <div class="col-span-2 flex flex-wrap gap-3">
+          <button data-seg="M" class="segment-btn px-5 py-2 rounded-full text-sm font-bold bg-white border border-slate-300 hover:bg-primary/10">👨 Masculino</button>
+          <button data-seg="F" class="segment-btn px-5 py-2 rounded-full text-sm font-bold bg-white border border-slate-300 hover:bg-primary/10">👩 Femenino</button>
+          <button data-seg="E" class="segment-btn px-5 py-2 rounded-full text-sm font-bold bg-white border border-slate-300 hover:bg-primary/10">🏢 Empresa</button>
+          <button id="clearSegmentGlobal" class="text-xs text-slate-400 underline ml-2">Limpiar</button>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-4 border-t pt-4 border-slate-100">
+        <div class="font-semibold text-slate-600 flex items-center gap-1"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"></rect></svg> Período:</div>
+        <input type="date" id="dateRangeStart" class="border rounded-lg px-3 py-2 text-sm">
+        <span class="text-slate-400">—</span>
+        <input type="date" id="dateRangeEnd" class="border rounded-lg px-3 py-2 text-sm">
+        <button id="applyDateBtn" class="bg-primary text-white px-4 py-2 rounded-lg text-sm font-bold shadow hover:bg-red-700">Aplicar</button>
+        <button id="clearDateBtn" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-bold">Limpiar</button>
+        <span id="dateActiveBadge" class="text-xs bg-primary/10 text-primary px-3 py-1 rounded-full hidden font-medium">📅 Filtro activo</span>
+      </div>
+      <div id="segmentActiveBadge" class="text-xs"></div>
+    </div>
+
+    
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div id="kpiCardTotal" class="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-5 shadow-md kpi-card">
+        <div class="flex items-center justify-between"><p class="text-slate-300 text-xs uppercase font-bold">👥 Clientes Únicos</p><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>
+        <p class="text-3xl font-black mt-2" id="kpiUniqueCustomers">0</p>
+        <p class="text-xs text-slate-400 mt-1">base clientes período</p>
+      </div>
+      <div id="kpiCardNew" class="bg-white rounded-2xl p-5 shadow-sm border-l-4 border-emerald-500 kpi-card">
+        <p class="text-slate-500 text-xs font-bold uppercase">✨ Clientes Nuevos</p>
+        <p class="text-3xl font-black text-emerald-600" id="kpiNewCustomers">0</p>
+        <p class="text-xs text-slate-400 mt-1">primera compra ≤ 30 días</p>
+      </div>
+      <div id="kpiCardLoyal" class="bg-white rounded-2xl p-5 shadow-sm border-l-4 border-blue-500 kpi-card">
+        <p class="text-slate-500 text-xs font-bold uppercase">🔄 Fidelizados</p>
+        <p class="text-3xl font-black text-blue-600" id="kpiLoyalCustomers">0</p>
+        <p class="text-xs text-slate-400 mt-1">≥2 compras · activo ≤45 días</p>
+      </div>
+      <div id="kpiCardChurn" class="bg-white rounded-2xl p-5 shadow-sm border-l-4 border-amber-500 kpi-card">
+        <p class="text-slate-500 text-xs font-bold uppercase">⚠️ Riesgo / Abandono</p>
+        <p class="text-3xl font-black text-amber-600" id="kpiChurnCustomers">0</p>
+        <p class="text-xs text-slate-400 mt-1">≥2 compras · inactivo &gt;45 días</p>
+      </div>
+    </div>
+
+    <div class="flex justify-between items-center">
+      <div id="behaviorFilterActive" class="text-sm font-medium text-primary bg-primary/10 px-4 py-1 rounded-full hidden"></div>
+      <button id="clearBehaviorFilter" class="text-xs text-slate-400 underline hidden">Limpiar filtro</button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div class="bg-slate-100 rounded-xl p-4 flex justify-between items-center"><span class="font-semibold">💰 Ingreso por Cliente (ARPC)</span><span class="text-2xl font-black text-primary" id="arpcValue">$0.00</span></div>
+      <div class="bg-slate-100 rounded-xl p-4 flex justify-between items-center"><span class="font-semibold">📊 Tasa de Retención</span><span class="text-2xl font-black text-primary" id="retentionRate">0%</span></div>
+      <div class="bg-slate-100 rounded-xl p-4 flex justify-between items-center"><span class="font-semibold">🏆 Top Clientes</span><span class="text-primary font-bold">ver abajo</span></div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="bg-white p-5 rounded-2xl shadow-sm border"><h2 class="font-bold text-lg">📈 Evolución: Nuevos vs Fidelizados</h2><div class="h-64"><canvas id="customerBehaviorChart"></canvas></div></div>
+      <div class="bg-white p-5 rounded-2xl shadow-sm border"><h2 class="font-bold text-lg">🍕 Distribución por segmento</h2><div class="h-56"><canvas id="segmentDonutChart"></canvas></div><div id="donutLegend" class="flex justify-center gap-4 mt-3 text-sm"></div></div>
+    </div>
+
+    
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+      <h2 class="font-black text-xl text-slate-800 mb-2 flex items-center gap-2">👥 Listado de Clientes <span id="behaviorTableTitle" class="text-primary text-base">(Todos los clientes)</span></h2>
+      <div class="overflow-x-auto scrollable-table max-h-96">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-100 text-slate-700 sticky top-0">
+            <tr><th>Cliente</th><th>Segmento</th><th>Total Ventas ($)</th><th>N° Tickets</th><th>Primera compra</th><th>Última compra</th><th>Estado</th></tr>
+          </thead>
+          <tbody id="behaviorCustomerTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+      <h2 class="font-black text-xl mb-3">🏆 TOP 10 Clientes por volumen de compra</h2>
+      <div class="overflow-x-auto scrollable-table max-h-80">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-100"><tr><th>#</th><th>Cliente</th><th>Segmento</th><th>Total Ventas ($)</th><th>N° tickets</th><th>Ticket Promedio</th></tr></thead>
+          <tbody id="top10TableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border p-5">
+      <h2 class="font-bold text-xl mb-2">📋 Detalle de Ventas (últimas 100)</h2>
+      <div class="overflow-x-auto scrollable-table max-h-96">
+        <table class="min-w-full text-xs md:text-sm">
+          <thead class="bg-slate-50"><tr><th>Fecha</th><th>Tienda</th><th>Ticket</th><th>Cliente</th><th>Venta ($)</th><th>Segmento</th><th>Margen %</th></tr></thead>
+          <tbody id="transactionDetailBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="text-xs text-slate-400 text-center py-2" id="debugInfo"></div>
+  </main>
+
+  <script>
+    const DATA_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQz_Iq9x8epywU3vIi-gU3RHEgPihlibwXxRslKcY9DKx604x9mj7ww-v_FJIZ7R13oA1HGmyuhNyzx/pub?gid=0&single=true&output=csv';
+    let rawTransactions = [];
+    let currentStore = 'ALL';
+    let currentSegment = null;
+    let startDate = null;
+    let endDate = null;
+    let behaviorFilter = null;
+    let behaviorChart, donutChart;
+    const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+
+    function parseDateCustom(dateStr) {
+      if(!dateStr || typeof dateStr !== 'string') return null;
+      const parts = dateStr.split('/');
+      if(parts.length === 3) return new Date(parseInt(parts[2]), parseInt(parts[1])-1, parseInt(parts[0]));
+      return null;
+    }
+    
+    function parseCSV(csvText) {
+      const lines = csvText.split(/\r?\n/).filter(l=>l.trim());
+      if(lines.length<2) return [];
+      const headers = lines[0].split(',').map(h=>h.replace(/"/g,'').trim());
+      const rows = [];
+      for(let i=1;i<lines.length;i++) {
+        let vals = [], curr = '', inQuote=false;
+        for(let ch of lines[i]) {
+          if(ch === '"') inQuote = !inQuote;
+          else if(ch === ',' && !inQuote) { vals.push(curr.trim()); curr=''; }
+          else curr += ch;
+        }
+        vals.push(curr.trim());
+        if(vals.length >= headers.length) {
+          let obj = {};
+          headers.forEach((h,idx)=>{ obj[h] = vals[idx] || ''; });
+          rows.push(obj);
+        }
+      }
+      return rows;
+    }
+
+    async function loadData() {
+      try {
+        document.getElementById('liveStatus').innerText = 'Cargando datos...';
+        const resp = await fetch(DATA_URL);
+        if(!resp.ok) throw new Error('HTTP '+resp.status);
+        const csv = await resp.text();
+        let rows = parseCSV(csv);
+        if(!rows.length) throw new Error('Sin datos');
+        rawTransactions = rows.map(r => {
+          let date = parseDateCustom(r.month);
+          let ventas = parseFloat(r.ventasImp) || 0;
+          let costo = parseFloat(r.costoVta) || 0;
+          let sexo = (r.SEXO || '').toUpperCase();
+          if(!['M','F','E'].includes(sexo)) sexo = 'E';
+          return {
+            month: r.month, parsedDate: date, ventasImp: ventas, costoVta: costo,
+            store: r.store || '', tickets: r.tickets || '', CLIENTE: r.CLIENTE || 'Anónimo', SEXO: sexo
+          };
+        }).filter(t => t.parsedDate && !isNaN(t.parsedDate));
+        document.getElementById('liveStatus').innerHTML = '✅ Datos CRM listos';
+        document.getElementById('debugInfo').innerHTML = `📊 ${rawTransactions.length} transacciones cargadas.`;
+        renderAll();
+      } catch(e) {
+        console.warn(e);
+        loadMockData();
+        renderAll();
+      }
+    }
+    
+    function loadMockData() {
+      const mock = [];
+      const clients = ['AUTO CENTRO','MARIA GOMEZ','JOSE PEREZ','CARLOS RIVAS','ANA MARTINEZ'];
+      const stores = ['PAV','SJ','BQ'];
+      const sexes = ['M','F','E'];
+      for(let i=0;i<120;i++) {
+        let date = new Date(2026, Math.floor(Math.random()*4)+1, Math.floor(Math.random()*28)+1);
+        let client = clients[Math.floor(Math.random()*clients.length)];
+        let venta = Math.random() * 900 + 30;
+        mock.push({
+          month: `${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()}`,
+          parsedDate: date, ventasImp: venta, costoVta: venta*(0.45+Math.random()*0.35),
+          store: stores[Math.floor(Math.random()*3)], tickets: `TKT-${Math.floor(Math.random()*9999)}`,
+          CLIENTE: client, SEXO: sexes[Math.floor(Math.random()*3)]
+        });
+      }
+      rawTransactions = mock;
+      document.getElementById('debugInfo').innerHTML = `⚠️ Demo: ${mock.length} registros simulados`;
+    }
+    
+    function getFilteredData() {
+      let filtered = [...rawTransactions];
+      if(currentStore !== 'ALL') filtered = filtered.filter(t => t.store === currentStore);
+      if(currentSegment) filtered = filtered.filter(t => t.SEXO === currentSegment);
+      if(startDate) filtered = filtered.filter(t => t.parsedDate >= startDate);
+      if(endDate) filtered = filtered.filter(t => t.parsedDate <= endDate);
+      return filtered;
+    }
+    
+    // ========== LÓGICA CORREGIDA ==========
+    // Reglas de negocio:
+    // 1. NUEVO: primera compra en el sistema ocurrió hace <= 30 días (respecto a la fecha máxima del período)
+    // 2. FIDELIZADO: ticketCount >= 2 Y última compra fue hace <= 45 días
+    // 3. RIESGO/ABANDONO: ticketCount >= 2 Y última compra fue hace > 45 días
+    // 4. OCASIONAL: ticketCount === 1 Y no es nuevo
+    function computeFullCustomerMetrics(transactions) {
+      if(!transactions.length) return { unique:0, new:0, loyal:0, churn:0, arpc:0, retention:0, customersDetail:[] };
+      
+      // Fecha máxima del período para calcular antigüedad
+      const maxDate = transactions.reduce((max,t)=> t.parsedDate > max ? t.parsedDate : max, new Date(0));
+      const days30ago = new Date(maxDate);
+      days30ago.setDate(days30ago.getDate() - 30);
+      const days45ago = new Date(maxDate);
+      days45ago.setDate(days45ago.getDate() - 45);
+      
+      // Primera compra global de cada cliente (histórico completo sin filtros)
+      const globalFirstPurchase = new Map();
+      rawTransactions.forEach(t => {
+        let name = t.CLIENTE;
+        if(!globalFirstPurchase.has(name) || t.parsedDate < globalFirstPurchase.get(name)) {
+          globalFirstPurchase.set(name, t.parsedDate);
+        }
+      });
+      
+      // Agregar datos por cliente dentro del período filtrado
+      const clientMap = new Map();
+      transactions.forEach(t => {
+        let name = t.CLIENTE;
+        if(!clientMap.has(name)) {
+          clientMap.set(name, { tickets: new Set(), total:0, firstDate: t.parsedDate, lastDate: t.parsedDate, seg: t.SEXO });
+        }
+        let rec = clientMap.get(name);
+        rec.tickets.add(t.tickets);
+        rec.total += t.ventasImp;
+        if(t.parsedDate < rec.firstDate) rec.firstDate = t.parsedDate;
+        if(t.parsedDate > rec.lastDate) rec.lastDate = t.parsedDate;
+      });
+      
+      const customersDetail = [];
+      for(let [name, data] of clientMap.entries()) {
+        const firstGlobal = globalFirstPurchase.get(name);
+        const ticketCount = data.tickets.size;
+        const daysSinceLast = Math.floor((maxDate - data.lastDate) / (1000 * 60 * 60 * 24));
+        
+        let status = '';
+        let isNew = false, isLoyal = false, isChurn = false;
+        
+        // Cliente NUEVO: su primera compra en el sistema fue hace <= 30 días
+        if(firstGlobal && firstGlobal >= days30ago) {
+          status = '✨ Nuevo';
+          isNew = true;
+        }
+        // Si tiene 2 o más compras
+        else if(ticketCount >= 2) {
+          if(daysSinceLast <= 45) {
+            status = '🔄 Fidelizado';
+            isLoyal = true;
+          } else {
+            status = '⚠️ Riesgo/Abandono';
+            isChurn = true;
+          }
+        }
+        // Una sola compra y no es nuevo
+        else if(ticketCount === 1) {
+          if(daysSinceLast > 45) status = '⚠️ Inactivo (>45 días)';
+          else status = '📌 Ocasional';
+        }
+        
+        customersDetail.push({
+          name, segment: data.seg, totalSpent: data.total, ticketCount: ticketCount,
+          firstPurchase: data.firstDate, lastPurchase: data.lastDate, status,
+          isNewFlag: isNew, isLoyalFlag: isLoyal, isChurnFlag: isChurn
+        });
+      }
+      
+      // Orden: por Total Ventas DESC, luego por tickets DESC
+      customersDetail.sort((a,b) => {
+        if(a.totalSpent !== b.totalSpent) return b.totalSpent - a.totalSpent;
+        return b.ticketCount - a.ticketCount;
+      });
+      
+      const unique = customersDetail.length;
+      const newCount = customersDetail.filter(c => c.isNewFlag).length;
+      const loyalCount = customersDetail.filter(c => c.isLoyalFlag).length;
+      const churnCount = customersDetail.filter(c => c.isChurnFlag).length;
+      const arpc = unique > 0 ? customersDetail.reduce((s,c)=>s+c.totalSpent,0)/unique : 0;
+      const retention = unique > 0 ? (loyalCount/unique)*100 : 0;
+      
+      return { unique, new: newCount, loyal: loyalCount, churn: churnCount, arpc, retention, customersDetail };
+    }
+    
+    function getFilteredCustomersByBehavior(customersList) {
+      if(!behaviorFilter) return customersList;
+      if(behaviorFilter === 'new') return customersList.filter(c => c.isNewFlag);
+      if(behaviorFilter === 'loyal') return customersList.filter(c => c.isLoyalFlag);
+      if(behaviorFilter === 'churn') return customersList.filter(c => c.isChurnFlag);
+      return customersList;
+    }
+    
+    function renderKPIsAndTable() {
+      const filteredTrans = getFilteredData();
+      const metrics = computeFullCustomerMetrics(filteredTrans);
+      
+      document.getElementById('kpiUniqueCustomers').innerText = metrics.unique;
+      document.getElementById('kpiNewCustomers').innerText = metrics.new;
+      document.getElementById('kpiLoyalCustomers').innerText = metrics.loyal;
+      document.getElementById('kpiChurnCustomers').innerText = metrics.churn;
+      document.getElementById('arpcValue').innerText = usd.format(metrics.arpc);
+      document.getElementById('retentionRate').innerText = metrics.retention.toFixed(1)+'%';
+      
+      let customersToShow = getFilteredCustomersByBehavior(metrics.customersDetail);
+      let title = " (Todos los clientes)";
+      if(behaviorFilter === 'new') title = " ✨ Clientes Nuevos (primera compra ≤30 días)";
+      else if(behaviorFilter === 'loyal') title = " 🔄 Clientes Fidelizados (≥2 compras, activo ≤45 días)";
+      else if(behaviorFilter === 'churn') title = " ⚠️ Clientes en Riesgo/Abandono (≥2 compras, inactivo >45 días)";
+      document.getElementById('behaviorTableTitle').innerHTML = title;
+      
+      const tbody = document.getElementById('behaviorCustomerTableBody');
+      tbody.innerHTML = '';
+      if(customersToShow.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-slate-400">No hay clientes con este filtro</td></tr>';
+        return;
+      }
+      
+      customersToShow.forEach(c => {
+        const row = `<tr class="border-b hover:bg-slate-50">
+          <td class="font-medium max-w-xs break-words">${escapeHtml(c.name)}</td>
+          <td>${c.segment==='M'?'Masculino':c.segment==='F'?'Femenino':'Empresa'}</td>
+          <td class="text-right font-semibold">${usd.format(c.totalSpent)}</td>
+          <td class="text-center">${c.ticketCount}</td>
+          <td class="text-xs">${c.firstPurchase.toLocaleDateString('es')}</td>
+          <td class="text-xs">${c.lastPurchase.toLocaleDateString('es')}</td>
+          <td class="text-xs font-bold ${c.status.includes('Nuevo')?'text-emerald-600':c.status.includes('Fidelizado')?'text-blue-600':c.status.includes('Riesgo')?'text-amber-600':'text-slate-500'}">${c.status}</td>
+        </tr>`;
+        tbody.insertAdjacentHTML('beforeend', row);
+      });
+    }
+    
+    function escapeHtml(str) { return String(str).replace(/[&<>]/g, function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+    
+    function renderTop10() {
+      const filtered = getFilteredData();
+      const agg = new Map();
+      filtered.forEach(t => {
+        let name = t.CLIENTE;
+        if(!agg.has(name)) agg.set(name, { total:0, tickets: new Set(), seg: t.SEXO });
+        let rec = agg.get(name);
+        rec.total += t.ventasImp;
+        rec.tickets.add(t.tickets);
+      });
+      const top = Array.from(agg.entries()).map(([name,data]) => ({ name, total: data.total, ticketsCount: data.tickets.size, segment: data.seg })).sort((a,b)=>b.total - a.total).slice(0,10);
+      const tbody = document.getElementById('top10TableBody');
+      tbody.innerHTML = '';
+      top.forEach((c,i) => {
+        tbody.insertAdjacentHTML('beforeend', `<tr class="border-b"><td class="font-bold">${i+1}</td><td>${escapeHtml(c.name)}</td><td>${c.segment==='M'?'Masculino':c.segment==='F'?'Femenino':'Empresa'}</td><td class="text-right font-bold">${usd.format(c.total)}</td><td class="text-center">${c.ticketsCount}</td><td class="text-right">${usd.format(c.total/c.ticketsCount)}</td></tr>`);
+      });
+    }
+    
+    function renderTransactionTable() {
+      const filtered = getFilteredData();
+      const tbody = document.getElementById('transactionDetailBody');
+      tbody.innerHTML = '';
+      filtered.slice(0,100).forEach(t => {
+        let margen = t.ventasImp > 0 ? ((t.ventasImp - t.costoVta)/t.ventasImp*100).toFixed(1) : 0;
+        tbody.insertAdjacentHTML('beforeend', `<tr class="border-b"><td>${t.month || ''}</td><td>${t.store}</td><td>${t.tickets}</td><td>${escapeHtml(t.CLIENTE)}</td><td class="text-right font-semibold">${usd.format(t.ventasImp)}</td><td>${t.SEXO}</td><td class="text-right ${margen>0?'text-emerald-600':'text-red-500'}">${margen}%</td></tr>`);
+      });
+    }
+    
+    function renderCharts() {
+      const filtered = getFilteredData();
+      const monthlyMap = new Map();
+      filtered.forEach(t => {
+        let ym = `${t.parsedDate.getFullYear()}-${t.parsedDate.getMonth()+1}`;
+        if(!monthlyMap.has(ym)) monthlyMap.set(ym, { date: t.parsedDate, clients: new Map() });
+        let monthData = monthlyMap.get(ym);
+        let name = t.CLIENTE;
+        if(!monthData.clients.has(name)) monthData.clients.set(name, { tickets: new Set() });
+        monthData.clients.get(name).tickets.add(t.tickets);
+      });
+      const sorted = Array.from(monthlyMap.entries()).sort((a,b)=>a[0].localeCompare(b[0]));
+      const labels = [], newArr = [], loyalArr = [];
+      const prevClients = new Set();
+      for(let [key, data] of sorted) {
+        let nuevos=0, fidelizados=0;
+        for(let [client, info] of data.clients.entries()) {
+          if(!prevClients.has(client) && info.tickets.size===1) nuevos++;
+          if(info.tickets.size >= 2) fidelizados++;
+          prevClients.add(client);
+        }
+        labels.push(data.date.toLocaleString('es',{month:'short'})+ ' ' + data.date.getFullYear());
+        newArr.push(nuevos);
+        loyalArr.push(fidelizados);
+      }
+      if(behaviorChart) behaviorChart.destroy();
+      const ctx = document.getElementById('customerBehaviorChart').getContext('2d');
+      behaviorChart = new Chart(ctx, { type:'line', data:{ labels, datasets:[{ label:'Nuevos', data:newArr, borderColor:'#10b981', tension:0.2, fill:false, pointBackgroundColor:'#10b981'},{ label:'Fidelizados', data:loyalArr, borderColor:'#3b82f6', tension:0.2 }] }, options:{ responsive:true, maintainAspectRatio:true } });
+      
+      const segDist = { M:0, F:0, E:0 };
+      const uniqClientsSeg = new Map();
+      filtered.forEach(t => { if(!uniqClientsSeg.has(t.CLIENTE)) uniqClientsSeg.set(t.CLIENTE, t.SEXO); });
+      for(let seg of uniqClientsSeg.values()) { if(seg==='M') segDist.M++; else if(seg==='F') segDist.F++; else segDist.E++; }
+      const donutData = [{ label:'Masculino', value:segDist.M, color:'#0f172a' }, { label:'Femenino', value:segDist.F, color:'#D32F2F' }, { label:'Empresa', value:segDist.E, color:'#94a3b8' }];
+      if(donutChart) donutChart.destroy();
+      const donutCtx = document.getElementById('segmentDonutChart').getContext('2d');
+      donutChart = new Chart(donutCtx, { type:'doughnut', data:{ labels:donutData.map(d=>d.label), datasets:[{ data:donutData.map(d=>d.value), backgroundColor:donutData.map(d=>d.color), borderWidth:0 }] }, options:{ cutout:'60%', plugins:{ legend:{ display:false } } } });
+      document.getElementById('donutLegend').innerHTML = donutData.map(d=>`<div class="flex items-center gap-1"><div class="w-3 h-3 rounded-full" style="background:${d.color}"></div><span class="text-xs">${d.label}: ${d.value}</span></div>`).join('');
+    }
+    
+    function renderAll() {
+      renderKPIsAndTable();
+      renderTop10();
+      renderTransactionTable();
+      renderCharts();
+      updateBehaviorFilterUI();
+    }
+    
+    function updateBehaviorFilterUI() {
+      const filterDiv = document.getElementById('behaviorFilterActive');
+      const clearBtn = document.getElementById('clearBehaviorFilter');
+      if(behaviorFilter) {
+        let text = behaviorFilter === 'new' ? '✨ Clientes Nuevos' : (behaviorFilter === 'loyal' ? '🔄 Fidelizados' : '⚠️ Riesgo/Abandono');
+        filterDiv.innerText = `Filtro activo: ${text}`;
+        filterDiv.classList.remove('hidden');
+        clearBtn.classList.remove('hidden');
+        document.querySelectorAll('.kpi-card').forEach(c => c.classList.remove('active-kpi-filter','ring-2','ring-primary'));
+        if(behaviorFilter === 'new') document.getElementById('kpiCardNew').classList.add('active-kpi-filter','ring-2','ring-primary');
+        else if(behaviorFilter === 'loyal') document.getElementById('kpiCardLoyal').classList.add('active-kpi-filter','ring-2','ring-primary');
+        else if(behaviorFilter === 'churn') document.getElementById('kpiCardChurn').classList.add('active-kpi-filter','ring-2','ring-primary');
+      } else {
+        filterDiv.classList.add('hidden');
+        clearBtn.classList.add('hidden');
+        document.querySelectorAll('.kpi-card').forEach(c => c.classList.remove('active-kpi-filter','ring-2','ring-primary'));
+      }
+    }
+    
+    function setBehaviorFilter(type) { behaviorFilter = behaviorFilter === type ? null : type; renderAll(); }
+    function clearBehavior() { behaviorFilter = null; renderAll(); }
+    
+    function bindEvents() {
+      document.querySelectorAll('.store-filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          currentStore = this.dataset.store;
+          document.querySelectorAll('.store-filter-btn').forEach(b => b.classList.remove('filter-active','bg-primary','text-white','shadow-md'));
+          this.classList.add('filter-active','bg-primary','text-white','shadow-md');
+          renderAll();
+        });
+      });
+      document.querySelectorAll('.segment-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          let seg = this.dataset.seg;
+          currentSegment = (currentSegment === seg ? null : seg);
+          renderAll();
+          document.getElementById('segmentActiveBadge').innerHTML = currentSegment ? `<span class="bg-primary/20 text-primary px-3 py-1 rounded-full text-xs">Segmento: ${currentSegment==='M'?'Masculino':currentSegment==='F'?'Femenino':'Empresa'} activo</span>` : '';
+        });
+      });
+      document.getElementById('clearSegmentGlobal').addEventListener('click', () => { currentSegment = null; renderAll(); document.getElementById('segmentActiveBadge').innerHTML = ''; });
+      document.getElementById('applyDateBtn').addEventListener('click', () => {
+        startDate = document.getElementById('dateRangeStart').value ? new Date(document.getElementById('dateRangeStart').value) : null;
+        endDate = document.getElementById('dateRangeEnd').value ? new Date(document.getElementById('dateRangeEnd').value) : null;
+        if(endDate) endDate.setHours(23,59,59);
+        document.getElementById('dateActiveBadge').classList.toggle('hidden', !startDate && !endDate);
+        renderAll();
+      });
+      document.getElementById('clearDateBtn').addEventListener('click', () => {
+        document.getElementById('dateRangeStart').value = ''; document.getElementById('dateRangeEnd').value = '';
+        startDate = null; endDate = null;
+        document.getElementById('dateActiveBadge').classList.add('hidden');
+        renderAll();
+      });
+      document.getElementById('kpiCardNew').addEventListener('click', () => setBehaviorFilter('new'));
+      document.getElementById('kpiCardLoyal').addEventListener('click', () => setBehaviorFilter('loyal'));
+      document.getElementById('kpiCardChurn').addEventListener('click', () => setBehaviorFilter('churn'));
+      document.getElementById('kpiCardTotal').addEventListener('click', () => { behaviorFilter = null; renderAll(); });
+      document.getElementById('clearBehaviorFilter').addEventListener('click', clearBehavior);
+    }
+    
+    loadData();
+    bindEvents();
+  </script>
