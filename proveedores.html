@@ -1,0 +1,982 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Repuestos Chinos VZLA - Control Financiero</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+
+<style>
+    /* --- ESTILOS GENERALES --- */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #1f2937; }
+    
+    /* Header */
+    .header { background: white; border-bottom: 4px solid #dc2626; padding: 1.5rem 2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 100; }
+    .header-content { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+    .logo-section { display: flex; align-items: center; gap: 1rem; }
+    .logo-icon { font-size: 2.5rem; color: #dc2626; font-weight: bold; }
+    .logo-text h1 { color: #111827; font-size: 1.5rem; font-weight: 700; }
+    .logo-text span { color: #dc2626; font-weight: 700; }
+    .logo-subtitle { color: #6b7280; font-size: 0.875rem; letter-spacing: 0.05em; text-transform: uppercase; }
+    .status-badge { background: #f3f4f6; padding: 0.5rem 1rem; border-radius: 9999px; font-size: 0.875rem; color: #059669; display: flex; align-items: center; gap: 0.5rem; }
+    .status-dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    /* Layout */
+    .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+    
+    /* Filtros */
+    .filters-card { background: white; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .filters-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+    .filter-group { display: flex; flex-direction: column; gap: 0.5rem; }
+    .filter-group label { font-size: 0.875rem; font-weight: 600; color: #374151; }
+    .filter-group select, .filter-group input { padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; background: white; }
+    .filter-actions { display: flex; gap: 1rem; margin-top: 1rem; }
+    .btn { padding: 0.625rem 1.5rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
+    .btn-primary { background: #dc2626; color: white; }
+    .btn-primary:hover { background: #b91c1c; }
+    .btn-secondary { background: #e5e7eb; color: #374151; }
+    .btn-secondary:hover { background: #d1d5db; }
+
+    /* KPIs */
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem; }
+    .kpi-card { background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 4px solid; }
+    .kpi-card.red { border-left-color: #dc2626; }
+    .kpi-card.blue { border-left-color: #3b82f6; }
+    .kpi-card.green { border-left-color: #10b981; }
+    .kpi-card.dark { background: #1e293b; color: white; border-left-color: #10b981; }
+    .kpi-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+    .kpi-card.red .kpi-label { color: #dc2626; }
+    .kpi-card.blue .kpi-label { color: #3b82f6; }
+    .kpi-card.green .kpi-label { color: #10b981; }
+    .kpi-card.dark .kpi-label { color: #94a3b8; }
+    .kpi-value { font-size: 1.875rem; font-weight: 700; margin-bottom: 0.25rem; }
+    .kpi-card.red .kpi-value { color: #dc2626; }
+    .kpi-card.blue .kpi-value { color: #1e293b; }
+    .kpi-card.green .kpi-value { color: #10b981; }
+    .kpi-subtitle { font-size: 0.875rem; color: #6b7280; }
+    .kpi-card.dark .kpi-subtitle { color: #94a3b8; }
+
+    /* Alertas */
+    .alerts-section { margin-bottom: 1.5rem; }
+    .alerts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+    .alert-card { background: white; border-radius: 0.75rem; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 4px solid; transition: transform 0.2s; }
+    .alert-card.clickable { cursor: pointer; }
+    .alert-card.clickable:hover { transform: translateY(-3px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    
+    .alert-card.critical { border-left-color: #ef4444; background: #fef2f2; }
+    .alert-card.warning { border-left-color: #f59e0b; background: #fffbeb; }
+    .alert-card.info { border-left-color: #3b82f6; background: #eff6ff; }
+    
+    .alert-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+    .alert-title { font-weight: 700; font-size: 0.875rem; }
+    .alert-badge { padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; }
+    .alert-card.critical .alert-badge { background: #ef4444; color: white; }
+    .alert-card.warning .alert-badge { background: #f59e0b; color: white; }
+    .alert-amount { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .alert-details { font-size: 0.875rem; color: #6b7280; }
+
+    /* Gráficos */
+    .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem; }
+    .chart-card { background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .chart-title { font-weight: 700; font-size: 1.125rem; display: flex; align-items: center; gap: 0.5rem; }
+    .chart-container { position: relative; height: 300px; }
+
+    /* Tabla Principal */
+    .table-card { background: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow-x: auto; }
+    .table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem; }
+    .table-title { font-weight: 700; font-size: 1.125rem; }
+    .sort-control { display: flex; align-items: center; gap: 0.5rem; }
+    .sort-control select { padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; background: white; min-width: 220px; cursor: pointer; }
+    
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+    th { font-weight: 600; color: #374151; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; user-select: none; }
+    th:hover { color: #dc2626; }
+    tr:hover { background: #f9fafb; }
+    
+    .status-tag { padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+    .status-vencido { background: #fee2e2; color: #dc2626; }
+    .status-por-vencer { background: #fef3c7; color: #d97706; }
+    .status-pagado { background: #d1fae5; color: #059669; }
+    .status-credito { background: #dbeafe; color: #2563eb; }
+
+    /* Loading & Error */
+    .loading-container { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 3rem; color: #6b7280; }
+    .spinner { width: 40px; height: 40px; border: 4px solid #f3f4f6; border-top-color: #dc2626; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 1rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-message { background: #fee2e2; color: #dc2626; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0; text-align: center; border: 1px solid #fecaca; }
+    .debug-info { background: #f3f4f6; padding: 1rem; margin-top: 1rem; font-family: monospace; font-size: 0.8rem; text-align: left; }
+
+    /* MODAL STYLES */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        backdrop-filter: blur(2px);
+    }
+    .modal-content {
+        background: white;
+        width: 90%;
+        max-width: 900px;
+        margin: 5% auto;
+        border-radius: 0.75rem;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        animation: slideDown 0.3s ease-out;
+    }
+    @keyframes slideDown { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .modal-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .modal-header.header-warning { background: #fffbeb; }
+    .modal-header.header-critical { background: #fef2f2; }
+    .modal-header.header-info { background: #eff6ff; }
+
+    .modal-body { padding: 1.5rem; max-height: 60vh; overflow-y: auto; }
+    .close-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #6b7280; }
+    .close-btn:hover { color: #dc2626; }
+
+    @media (max-width: 768px) { 
+        .container { padding: 1rem; } 
+        .charts-grid { grid-template-columns: 1fr; } 
+        .kpi-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<header class="header">
+    <div class="header-content">
+        <div class="logo-section">
+            <div class="logo-icon">金</div>
+            <div class="logo-text">
+                <h1>Repuestos Chinos <span>VZLA</span></h1>
+                <div class="logo-subtitle">Control de pagos a Proveedores</div>
+            </div>
+        </div>
+        <div class="status-badge"><span class="status-dot"></span> Datos actualizados</div>
+    </div>
+</header>
+
+<div class="container">
+    <div id="loading" class="loading-container">
+        <div class="spinner"></div>
+        <span>Cargando datos...</span>
+    </div>
+
+    <div id="error-container" style="display: none;"></div>
+
+    <div id="dashboard-content" style="display: none;">
+        
+        <div class="filters-card">
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label>Empresa:</label>
+                    <select id="filterEmpresa"><option value="all">Todas</option></select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>Estado:</label>
+                    <select id="filterEstado">
+                        <option value="all">Todos</option>
+                        <option value="pagado">Pagado</option>
+                        <option value="credito">Línea de Crédito</option>
+                        <option value="por_vencer">Por Vencer</option>
+                        <option value="vencido">Vencido</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>Proveedor:</label>
+                    <select id="filterAsiento"><option value="all">Todos</option></select>
+                </div>
+                <div class="filter-group">
+                    <label>Filtrar por:</label>
+                    <select id="filterDateType">
+                        <option value="vencimiento">Fecha Vencimiento</option>
+                        <option value="factura">Fecha Factura</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Desde:</label>
+                    <input type="date" id="filterDesde">
+                </div>
+                <div class="filter-group">
+                    <label>Hasta:</label>
+                    <input type="date" id="filterHasta">
+                </div>
+            </div>
+            <div class="filter-actions">
+                <button class="btn btn-primary" onclick="applyFilters()">Aplicar Filtros</button>
+                <button class="btn btn-secondary" onclick="clearFilters()">Limpiar Todo</button>
+            </div>
+        </div>
+
+        
+        <div class="kpi-grid">
+            <div class="kpi-card red">
+                <div class="kpi-label">$ Facturado Total</div>
+                <div class="kpi-value" id="kpiFacturado">$0</div>
+                <div class="kpi-subtitle">Monto total de facturas</div>
+            </div>
+            <div class="kpi-card blue">
+                <div class="kpi-label">Total Pagado</div>
+                <div class="kpi-value" id="kpiPagado">$0</div>
+                <div class="kpi-subtitle">Monto pagado (filtrado por fecha)</div>
+            </div>
+            <div class="kpi-card dark">
+                <div class="kpi-label">Por Pagar</div>
+                <div class="kpi-value" id="kpiPorPagar">$0</div>
+                <div class="kpi-subtitle">Facturado - Pagado</div>
+            </div>
+            <div class="kpi-card green">
+                <div class="kpi-label">% Pagado</div>
+                <div class="kpi-value" id="kpiPorcentaje">0%</div>
+                <div class="kpi-subtitle">Pagado / Facturado</div>
+            </div>
+        </div>
+
+        
+        <div class="alerts-section">
+            <div class="alerts-grid">
+                <div class="alert-card critical clickable" onclick="showModalVencidas()">
+                    <div class="alert-header">
+                        <span class="alert-title">⚠️ Cuentas Vencidas</span>
+                        <span class="alert-badge" id="countVencidas">0</span>
+                    </div>
+                    <div class="alert-amount" id="amountVencidas">$0</div>
+                    <div class="alert-details" id="detailsVencidas">Requieren atención inmediata</div>
+                </div>
+                
+                <div class="alert-card warning clickable" onclick="showModal()">
+                    <div class="alert-header">
+                        <span class="alert-title">⏰ Por Vencer (7 días)</span>
+                        <span class="alert-badge" id="countPorVencer">0</span>
+                    </div>
+                    <div class="alert-amount" id="amountPorVencer">$0</div>
+                    <div class="alert-details" id="detailsPorVencer">Ver detalle de pagos</div>
+                </div>
+
+                <div class="alert-card info clickable" onclick="showModalCredito()">
+                    <div class="alert-header">
+                        <span class="alert-title">💳 Líneas de Crédito</span>
+                        <span class="alert-badge" id="countCredito">0</span>
+                    </div>
+                    <div class="alert-amount" id="amountCredito">$0</div>
+                    <div class="alert-details" id="detailsCredito">AUTOFRANCE, JUANGAO, KEN, KUANG</div>
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="charts-grid">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <div class="chart-title"><span>📊</span> Evolución de Compras por Mes</div>
+                </div>
+                <div class="chart-container"><canvas id="chartEvolucion"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-header">
+                    <div class="chart-title"><span>🥧</span> Compras por Proveedor</div>
+                </div>
+                <div class="chart-container"><canvas id="chartProveedores"></canvas></div>
+            </div>
+        </div>
+
+        
+        <div class="table-card">
+            <div class="table-header">
+                <div class="table-title">📋 Detalle de Cuentas por Pagar</div>
+                <div class="sort-control">
+                    <label for="sortOption">🔄 Ordenar por:</label>
+                    <select id="sortOption" onchange="updateTable()">
+                        <option value="factura_desc">Fecha Factura: Más Reciente</option>
+                        <option value="factura_asc">Fecha Factura: Más Antigua</option>
+                        <option value="vencimiento_asc">Vencimiento: Próximo Primero</option>
+                        <option value="vencimiento_desc">Vencimiento: Más Lejano</option>
+                        <option value="monto_desc">Saldo: Mayor a Menor</option>
+                        <option value="monto_asc">Saldo: Menor a Mayor</option>
+                        <option value="proveedor_asc">Proveedor: A-Z</option>
+                    </select>
+                </div>
+            </div>
+            <table id="detailTable">
+                <thead>
+                    <tr>
+                        <th onclick="setSort('proveedor_asc')">Proveedor ⇅</th>
+                        <th>Factura</th> 
+                        <th onclick="setSort('factura_desc')">Fecha Factura ⇅</th>
+                        <th onclick="setSort('vencimiento_asc')">Vencimiento ⇅</th>
+                        <th onclick="setSort('monto_desc')">Facturado ⇅</th>
+                        <th>Pagado</th>
+                        <th onclick="setSort('monto_desc')">Saldo ⇅</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+<div id="modalVencimiento" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header header-warning">
+            <div class="table-title" style="color: #d97706;">⏰ Detalle: Cuentas por Vencer (Próximos 7 días)</div>
+            <button class="close-btn" onclick="closeModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <table id="modalTable">
+                <thead>
+                    <tr>
+                        <th>Proveedor</th>
+                        <th>Fecha Factura</th>
+                        <th>Vencimiento</th>
+                        <th>Facturado</th>
+                        <th>Pagado</th>
+                        <th>Saldo Pendiente</th>
+                        <th>Días Restantes</th>
+                    </tr>
+                </thead>
+                <tbody id="modalTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="modalVencidas" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header header-critical">
+            <div class="table-title" style="color: #dc2626;">⚠️ Detalle: Cuentas Vencidas (Requieren Pago)</div>
+            <button class="close-btn" onclick="closeModalVencidas()">×</button>
+        </div>
+        <div class="modal-body">
+            <table id="modalVencidasTable">
+                <thead>
+                    <tr>
+                        <th>Proveedor</th>
+                        <th>Fecha Factura</th>
+                        <th>Vencimiento</th>
+                        <th>Facturado</th>
+                        <th>Pagado</th>
+                        <th>Saldo Pendiente</th>
+                        <th>Días de Retraso</th>
+                    </tr>
+                </thead>
+                <tbody id="modalVencidasBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="modalCredito" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header header-info">
+            <div class="table-title" style="color: #2563eb;">💳 Detalle: Líneas de Crédito Activas</div>
+            <button class="close-btn" onclick="closeModalCredito()">×</button>
+        </div>
+        <div class="modal-body">
+            <table id="modalCreditoTable">
+                <thead>
+                    <tr>
+                        <th>Proveedor</th>
+                        <th>Fecha Factura</th>
+                        <th>Vencimiento</th>
+                        <th>Facturado</th>
+                        <th>Pagado</th>
+                        <th>Saldo Pendiente</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="modalCreditoBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRd2_fNlNOdjPu7KQlIwGqJQYkvjibW_i5RTfnWG-ueINamBMRamx2j8vK2T-yeMRDLjKCrW92YvuL4/pub?gid=0&single=true&output=csv';
+    
+    const LINEA_CREDITO = ['JUANGAO', 'KEN', 'KUANG','JUANGAO BAQTO','KEN BAQTO','KUANG BQTO','AUTOFRANCE BQTO','AUTOFRANCE'];
+    const PROVEEDORES_MAP = { 'KEN CTA NVA': 'KEN', 'KEN CTA ANTERIOR': 'KEN' };
+
+    let rawData = [];
+    let processedData = [];
+    let filteredData = [];
+    let cuentasPorVencerData = [];
+    let cuentasVencidasData = [];
+    let cuentasCreditoData = [];
+    let chartEvolucion = null;
+    let chartProveedores = null;
+
+    document.addEventListener('DOMContentLoaded', () => { 
+        document.getElementById('sortOption').value = 'factura_desc';
+        loadData(); 
+    });
+
+    function setSort(value) {
+        const sortSelect = document.getElementById('sortOption');
+        if (sortSelect) {
+            sortSelect.value = value;
+            updateTable();
+        }
+    }
+
+    async function loadData() {
+        try {
+            console.log('Iniciando carga...');
+            let csvText = '';
+            
+            // Intento de conexión directa
+            try {
+                const directResponse = await fetch(SHEET_URL);
+                if(directResponse.ok) {
+                    csvText = await directResponse.text();
+                    console.log('Conexión directa exitosa.');
+                } else {
+                    throw new Error('Fallo en fetch directo');
+                }
+            } catch (e) {
+                console.log('Usando Proxy CORS...');
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(SHEET_URL)}`;
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const json = await response.json();
+                csvText = json.contents;
+            }
+
+            Papa.parse(csvText, {
+                header: true,
+                skipEmptyLines: true,
+                transformHeader: header => header.trim(),
+                complete: function(results) {
+                    if (!results.data || results.data.length === 0) throw new Error('No se recibieron datos del CSV.');
+                    
+                    const firstRow = results.data[0];
+                    if (!firstRow || Object.keys(firstRow).length < 2) throw new Error('El formato del CSV parece incorrecto o vacío.');
+
+                    rawData = results.data;
+                    processedData = groupData(rawData);
+                    
+                    if (processedData.length === 0) throw new Error('Datos recibidos, pero no se pudieron procesar grupos válidos.');
+
+                    filteredData = [...processedData];
+                    populateFilters();
+                    updateDashboard();
+                    
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('dashboard-content').style.display = 'block';
+                },
+                error: function(error) {
+                    showError('Error leyendo CSV: ' + error.message);
+                }
+            });
+        } catch (error) {
+            console.error(error);
+            showError('Error cargando datos: ' + error.message + '<br><br><strong>Nota:</strong> Si estás abriendo este archivo localmente, algunos navegadores bloquean la conexión a Google Sheets. Intenta usar una extensión como "Allow CORS" o súbelo a un servidor web.');
+        }
+    }
+
+    function showError(message) {
+        document.getElementById('loading').style.display = 'none';
+        const errorDiv = document.getElementById('error-container');
+        errorDiv.innerHTML = `<div class="error-message">${message}</div>`;
+        errorDiv.style.display = 'block';
+    }
+
+    function groupData(data) {
+        const groups = {};
+        
+        data.forEach((row) => {
+            try {
+                if (!row.ASIENTO && !row.MONTO) return;
+
+                const proveedorRaw = row.ASIENTO || '';
+                const proveedor = PROVEEDORES_MAP[proveedorRaw] || proveedorRaw;
+                
+                const vencimiento = parseDate(row.VENCIMIENTO);
+                const fechaFactura = parseDate(row.FECHA);
+                const nroFactura = String(row.FACTURA || row['NRO FACTURA'] || row.NUMERO || '-');
+
+                const keyStr = vencimiento ? vencimiento.toISOString() : 'sin_vencimiento';
+                const key = `${proveedor}||${keyStr}`;
+
+                if (!groups[key]) {
+                    groups[key] = {
+                        proveedor: proveedor,
+                        vencimiento: vencimiento,
+                        fechaFactura: fechaFactura,
+                        totalFacturado: 0,
+                        totalPagado: 0,
+                        empresa: row.EMPRESA || '',
+                        tipoCuenta: row['TIPO CUENTA'] || '',
+                        esLineaCredito: LINEA_CREDITO.includes(proveedor),
+                        nroFactura: nroFactura
+                    };
+                } 
+
+                const group = groups[key];
+                const monto = parseNumber(row.MONTO);
+                const totalGral = parseNumber(row['TOTAL GRAL']);
+                
+                if (monto > 0) group.totalFacturado += monto;
+                if (totalGral > 0) group.totalPagado += totalGral;
+
+                if (fechaFactura && (!group.fechaFactura || fechaFactura < group.fechaFactura)) {
+                    group.fechaFactura = fechaFactura;
+                }
+            } catch (error) { console.error(error); }
+        });
+        
+        return Object.values(groups).filter(g => (g.totalFacturado > 0 || g.totalPagado > 0));
+    }
+
+    function parseNumber(num) {
+        try {
+            if (!num || num === '') return 0;
+            let clean = num.toString().trim().replace(/[$\s]/g, '');
+            if (clean.includes(',') && clean.includes('.')) {
+                clean = clean.lastIndexOf(',') > clean.lastIndexOf('.') 
+                    ? clean.replace(/\./g, '').replace(',', '.') 
+                    : clean.replace(/,/g, '');
+            } else if (clean.includes(',')) {
+                clean = clean.replace(',', '.');
+            }
+            return parseFloat(clean) || 0;
+        } catch { return 0; }
+    }
+
+    function parseDate(dateStr) {
+        try {
+            if (!dateStr || dateStr === '') return null;
+            const str = dateStr.toString().trim();
+            const dmyRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+            const matchDmy = str.match(dmyRegex);
+            
+            if (matchDmy) {
+                let day = parseInt(matchDmy[1], 10);
+                let month = parseInt(matchDmy[2], 10);
+                let year = parseInt(matchDmy[3], 10);
+                if (year < 2000) return null;
+                return new Date(year, month - 1, day);
+            }
+            
+            const isoRegex = /^(\d{4})-(\d{2})-(\d{2})/;
+            const matchIso = str.match(isoRegex);
+            if (matchIso) {
+                return new Date(parseInt(matchIso[1]), parseInt(matchIso[2]) - 1, parseInt(matchIso[3]));
+            }
+            return null;
+        } catch { return null; }
+    }
+
+    function populateFilters() {
+        const empresas = [...new Set(processedData.map(d => d.empresa).filter(Boolean))].sort();
+        const proveedores = [...new Set(processedData.map(d => d.proveedor).filter(Boolean))].sort();
+
+        const fillSelect = (id, items) => {
+            const select = document.getElementById(id);
+            const currentVal = select.value;
+            const firstOption = select.options[0];
+            select.innerHTML = '';
+            select.appendChild(firstOption);
+            items.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item; opt.textContent = item;
+                select.appendChild(opt);
+            });
+            if(items.includes(currentVal)) select.value = currentVal;
+        };
+
+        fillSelect('filterEmpresa', empresas);
+        fillSelect('filterAsiento', proveedores);
+    }
+
+    function applyFilters() {
+        const empresa = document.getElementById('filterEmpresa').value;
+        const estadoFiltro = document.getElementById('filterEstado').value;
+        const asiento = document.getElementById('filterAsiento').value;
+        const dateType = document.getElementById('filterDateType').value;
+        const desde = document.getElementById('filterDesde').value;
+        const hasta = document.getElementById('filterHasta').value;
+
+        const hoy = new Date(); 
+        hoy.setHours(0,0,0,0);
+
+        filteredData = processedData.filter(row => {
+            // Filtro por empresa
+            if (empresa !== 'all' && row.empresa !== empresa) return false;
+            
+            // Filtro por proveedor
+            if (asiento !== 'all' && row.proveedor !== asiento) return false;
+
+            // Filtro por fecha (factura o vencimiento)
+            let dateToFilter = dateType === 'factura' ? row.fechaFactura : row.vencimiento;
+            
+            // IMPORTANTE: Si la fecha es nula o inválida, incluimos el registro solo si no hay filtros de fecha activos
+            if (!dateToFilter || isNaN(dateToFilter.getTime())) {
+                // Si hay filtros de fecha activos, excluimos los registros sin fecha válida
+                if ((desde && desde !== '') || (hasta && hasta !== '')) {
+                    return false;
+                }
+            } else {
+                // Aplicar filtros de fecha solo si la fecha es válida
+                if (desde && desde !== '') {
+                    const desdeDate = new Date(desde);
+                    desdeDate.setHours(0,0,0,0);
+                    if (dateToFilter < desdeDate) return false;
+                }
+                
+                if (hasta && hasta !== '') {
+                    const hastaDate = new Date(hasta);
+                    hastaDate.setHours(23,59,59,999);
+                    if (dateToFilter > hastaDate) return false;
+                }
+            }
+
+            // Filtro por estado
+            if (estadoFiltro !== 'all') {
+                const saldo = row.totalFacturado - row.totalPagado;
+                const tieneSaldo = saldo > 0.01;
+                let estadoRealFila = '';
+
+                if (!tieneSaldo) {
+                    estadoRealFila = 'pagado';
+                } else if (row.esLineaCredito) {
+                    estadoRealFila = 'credito';
+                } else if (row.vencimiento && row.vencimiento < hoy) {
+                    estadoRealFila = 'vencido';
+                } else {
+                    estadoRealFila = 'por_vencer';
+                }
+
+                if (estadoFiltro === 'pagado' && estadoRealFila !== 'pagado') return false;
+                if (estadoFiltro === 'credito' && estadoRealFila !== 'credito') return false;
+                if (estadoFiltro === 'vencido' && estadoRealFila !== 'vencido') return false;
+                if (estadoFiltro === 'por_vencer' && estadoRealFila !== 'por_vencer') return false;
+            }
+
+            return true;
+        });
+
+        updateDashboard();
+    }
+
+    function clearFilters() {
+        document.getElementById('filterEmpresa').value = 'all';
+        document.getElementById('filterEstado').value = 'all';
+        document.getElementById('filterAsiento').value = 'all';
+        document.getElementById('filterDateType').value = 'vencimiento';
+        document.getElementById('filterDesde').value = '';
+        document.getElementById('filterHasta').value = '';
+        
+        filteredData = [...processedData];
+        updateDashboard();
+    }
+
+    function updateDashboard() {
+        updateKPIs();
+        updateAlerts();
+        updateCharts();
+        updateTable();
+    }
+
+    function updateKPIs() {
+        // Los KPIs ahora se calculan SOLO sobre los datos filtrados
+        const totalFacturado = filteredData.reduce((sum, d) => sum + d.totalFacturado, 0);
+        const totalPagado = filteredData.reduce((sum, d) => sum + d.totalPagado, 0);
+        const porPagar = totalFacturado - totalPagado;
+        const porcentaje = totalFacturado > 0 ? (totalPagado / totalFacturado) * 100 : 0;
+
+        document.getElementById('kpiFacturado').textContent = formatCurrency(totalFacturado);
+        document.getElementById('kpiPagado').textContent = formatCurrency(totalPagado);
+        document.getElementById('kpiPorPagar').textContent = formatCurrency(porPagar);
+        document.getElementById('kpiPorcentaje').textContent = porcentaje.toFixed(1) + '%';
+        
+        // Debug en consola para verificar
+        console.log('KPIs actualizados - Facturado:', formatCurrency(totalFacturado), 'Pagado:', formatCurrency(totalPagado));
+    }
+
+    function updateAlerts() {
+        const hoy = new Date(); hoy.setHours(0,0,0,0);
+        const sieteDias = new Date(hoy); sieteDias.setDate(sieteDias.getDate() + 7);
+
+        let vencidas = 0, montoVencidas = 0, porVencer = 0, montoPorVencer = 0, credito = 0, montoCredito = 0;
+        
+        cuentasPorVencerData = [];
+        cuentasVencidasData = [];
+        cuentasCreditoData = [];
+
+        filteredData.forEach(d => {
+            const saldo = d.totalFacturado - d.totalPagado;
+            if (saldo <= 0.01) return; 
+
+            if (d.esLineaCredito) {
+                credito++;
+                montoCredito += saldo;
+                cuentasCreditoData.push(d);
+            } else if (d.vencimiento) {
+                if (d.vencimiento < hoy) { 
+                    vencidas++; 
+                    montoVencidas += saldo;
+                    cuentasVencidasData.push(d);
+                }
+                else if (d.vencimiento <= sieteDias) { 
+                    porVencer++; 
+                    montoPorVencer += saldo;
+                    cuentasPorVencerData.push(d);
+                }
+            }
+        });
+
+        document.getElementById('countVencidas').textContent = vencidas;
+        document.getElementById('amountVencidas').textContent = formatCurrency(montoVencidas);
+        document.getElementById('detailsVencidas').textContent = vencidas > 0 ? `${vencidas} facturas requieren pago` : 'Todo al día';
+
+        document.getElementById('countPorVencer').textContent = porVencer;
+        document.getElementById('amountPorVencer').textContent = formatCurrency(montoPorVencer);
+        document.getElementById('detailsPorVencer').textContent = porVencer > 0 ? `Programar ${porVencer} pagos` : 'Sin urgencias';
+
+        document.getElementById('countCredito').textContent = credito;
+        document.getElementById('amountCredito').textContent = formatCurrency(montoCredito);
+        document.getElementById('detailsCredito').textContent = credito > 0 ? `${credito} cuentas activas` : 'Sin saldos pendientes';
+    }
+
+    function showModal() { renderModalTable(); document.getElementById('modalVencimiento').style.display = 'block'; }
+    function closeModal() { document.getElementById('modalVencimiento').style.display = 'none'; }
+    function showModalVencidas() { renderModalVencidasTable(); document.getElementById('modalVencidas').style.display = 'block'; }
+    function closeModalVencidas() { document.getElementById('modalVencidas').style.display = 'none'; }
+    function showModalCredito() { renderModalCreditoTable(); document.getElementById('modalCredito').style.display = 'block'; }
+    function closeModalCredito() { document.getElementById('modalCredito').style.display = 'none'; }
+
+    window.onclick = function(event) {
+        if (event.target == document.getElementById('modalVencimiento')) closeModal();
+        if (event.target == document.getElementById('modalVencidas')) closeModalVencidas();
+        if (event.target == document.getElementById('modalCredito')) closeModalCredito();
+    }
+
+    function renderModalTable() {
+        const tbody = document.getElementById('modalTableBody');
+        const hoy = new Date(); hoy.setHours(0,0,0,0);
+        const sortedData = [...cuentasPorVencerData].sort((a, b) => a.vencimiento - b.vencimiento);
+
+        if (sortedData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 2rem;">No hay cuentas por vencer en los próximos 7 días.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = sortedData.map(d => {
+            const saldo = d.totalFacturado - d.totalPagado;
+            const diffTime = d.vencimiento - hoy;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            let diasText = diffDays === 0 ? 'Hoy' : `${diffDays} días`;
+            let diasColor = diffDays <= 2 ? '#dc2626' : '#d97706';
+
+            return `
+                <tr>
+                    <td><strong>${d.proveedor}</strong></td>
+                    <td>${formatDate(d.fechaFactura)}</td>
+                    <td>${formatDate(d.vencimiento)}</td>
+                    <td>${formatCurrency(d.totalFacturado)}</td>
+                    <td>${formatCurrency(d.totalPagado)}</td>
+                    <td style="font-weight: 700; color: #dc2626">${formatCurrency(saldo)}</td>
+                    <td style="color: ${diasColor}; font-weight: 600;">${diasText}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function renderModalVencidasTable() {
+        const tbody = document.getElementById('modalVencidasBody');
+        const hoy = new Date(); hoy.setHours(0,0,0,0);
+        const sortedData = [...cuentasVencidasData].sort((a, b) => a.vencimiento - b.vencimiento);
+
+        if (sortedData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 2rem;">¡Excelente! No hay cuentas vencidas.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = sortedData.map(d => {
+            const saldo = d.totalFacturado - d.totalPagado;
+            const diffTime = hoy - d.vencimiento;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            return `
+                <tr>
+                    <td><strong>${d.proveedor}</strong></td>
+                    <td>${formatDate(d.fechaFactura)}</td>
+                    <td style="color: #dc2626; font-weight: 600;">${formatDate(d.vencimiento)}</td>
+                    <td>${formatCurrency(d.totalFacturado)}</td>
+                    <td>${formatCurrency(d.totalPagado)}</td>
+                    <td style="font-weight: 700; color: #dc2626">${formatCurrency(saldo)}</td>
+                    <td style="color: #dc2626; font-weight: 600;">${diffDays} días retraso</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function renderModalCreditoTable() {
+        const tbody = document.getElementById('modalCreditoBody');
+        const sortedData = [...cuentasCreditoData].sort((a, b) => (b.totalFacturado - b.totalPagado) - (a.totalFacturado - a.totalPagado));
+
+        if (sortedData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 2rem;">No hay saldos pendientes en líneas de crédito.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = sortedData.map(d => {
+            const saldo = d.totalFacturado - d.totalPagado;
+            return `
+                <tr>
+                    <td><strong>${d.proveedor}</strong></td>
+                    <td>${formatDate(d.fechaFactura)}</td>
+                    <td>${formatDate(d.vencimiento)}</td>
+                    <td>${formatCurrency(d.totalFacturado)}</td>
+                    <td>${formatCurrency(d.totalPagado)}</td>
+                    <td style="font-weight: 700; color: #2563eb">${formatCurrency(saldo)}</td>
+                    <td><span class="status-tag status-credito">Línea Crédito</span></td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function updateCharts() {
+        const meses = {};
+        filteredData.forEach(d => {
+            // Usamos fecha de vencimiento para la evolución mensual (o podríamos usar fecha factura)
+            const fechaReferencia = d.vencimiento || d.fechaFactura;
+            if (fechaReferencia && !isNaN(fechaReferencia.getTime())) {
+                const key = `${fechaReferencia.getFullYear()}-${String(fechaReferencia.getMonth() + 1).padStart(2, '0')}`;
+                if (!meses[key]) meses[key] = { facturado: 0, pagado: 0 };
+                meses[key].facturado += d.totalFacturado;
+                meses[key].pagado += d.totalPagado;
+            }
+        });
+
+        const sortedMeses = Object.keys(meses).sort();
+        const labels = sortedMeses.map(m => { 
+            const [y, mo] = m.split('-'); 
+            return `${mo}/${y}`; 
+        });
+
+        const ctxEvolucion = document.getElementById('chartEvolucion').getContext('2d');
+        if (chartEvolucion) chartEvolucion.destroy();
+        
+        chartEvolucion = new Chart(ctxEvolucion, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'Facturado', data: sortedMeses.map(m => meses[m].facturado), backgroundColor: '#dc2626', borderRadius: 4 },
+                    { label: 'Pagado', data: sortedMeses.map(m => meses[m].pagado), backgroundColor: '#10b981', borderRadius: 4 }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { callback: function(value) { return '$' + value.toLocaleString(); } } } } }
+        });
+
+        const proveedores = {};
+        filteredData.forEach(d => { proveedores[d.proveedor] = (proveedores[d.proveedor] || 0) + d.totalFacturado; });
+        
+        // Ordenar proveedores por monto
+        const sortedProveedores = Object.entries(proveedores).sort((a, b) => b[1] - a[1]);
+        const topProveedores = sortedProveedores.slice(0, 8);
+        const otrosMonto = sortedProveedores.slice(8).reduce((sum, [, monto]) => sum + monto, 0);
+        
+        let labelsProv = topProveedores.map(([nombre]) => nombre);
+        let dataProv = topProveedores.map(([, monto]) => monto);
+        
+        if (otrosMonto > 0) {
+            labelsProv.push('Otros');
+            dataProv.push(otrosMonto);
+        }
+        
+        const colors = ['#dc2626', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6', '#94a3b8'];
+        
+        const ctxProv = document.getElementById('chartProveedores').getContext('2d');
+        if (chartProveedores) chartProveedores.destroy();
+
+        chartProveedores = new Chart(ctxProv, {
+            type: 'doughnut',
+            data: {
+                labels: labelsProv,
+                datasets: [{ data: dataProv, backgroundColor: colors.slice(0, labelsProv.length), borderWidth: 2, borderColor: '#fff' }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } }, tooltip: { callbacks: { label: function(context) { return context.label + ': ' + formatCurrency(context.raw); } } } } }
+        });
+    }
+
+    function updateTable() {
+        const hoy = new Date(); hoy.setHours(0,0,0,0);
+        const tbody = document.getElementById('tableBody');
+        const sortOption = document.getElementById('sortOption')?.value || 'factura_desc';
+
+        const sortedData = [...filteredData].sort((a, b) => {
+            switch(sortOption) {
+                case 'factura_desc': 
+                    if (!a.fechaFactura) return 1; if (!b.fechaFactura) return -1;
+                    return b.fechaFactura - a.fechaFactura;
+                case 'factura_asc': 
+                    if (!a.fechaFactura) return 1; if (!b.fechaFactura) return -1;
+                    return a.fechaFactura - b.fechaFactura;
+                case 'vencimiento_asc': 
+                    if (!a.vencimiento) return 1; if (!b.vencimiento) return -1;
+                    return a.vencimiento - b.vencimiento;
+                case 'vencimiento_desc': 
+                    if (!a.vencimiento) return 1; if (!b.vencimiento) return -1;
+                    return b.vencimiento - a.vencimiento;
+                case 'monto_desc': 
+                    return (b.totalFacturado - b.totalPagado) - (a.totalFacturado - a.totalPagado);
+                case 'monto_asc': 
+                    return (a.totalFacturado - a.totalPagado) - (b.totalFacturado - b.totalPagado);
+                case 'proveedor_asc': 
+                    return a.proveedor.localeCompare(b.proveedor, 'es');
+                default: return 0;
+            }
+        });
+
+        tbody.innerHTML = sortedData.map(d => {
+            const saldo = d.totalFacturado - d.totalPagado;
+            let estado = 'pagado', estadoClass = 'status-pagado', estadoText = 'Pagado';
+
+            if (saldo > 0.01) {
+                if (d.esLineaCredito) {
+                    estado = 'credito'; estadoClass = 'status-credito'; estadoText = 'Línea Crédito';
+                } else if (d.vencimiento) {
+                    if (d.vencimiento < hoy) { estado = 'vencido'; estadoClass = 'status-vencido'; estadoText = 'Vencido'; }
+                    else { estado = 'por-vencer'; estadoClass = 'status-por-vencer'; estadoText = 'Por Vencer'; }
+                } else { estadoClass = 'status-vencido'; estadoText = 'Sin Fecha'; }
+            }
+
+            return `
+                <tr>
+                    <td><strong>${d.proveedor}</strong></td>
+                    <td style="text-align: left;">${d.nroFactura || '-'}</td>
+                    <td>${formatDate(d.fechaFactura)}</td>
+                    <td>${formatDate(d.vencimiento)}</td>
+                    <td>${formatCurrency(d.totalFacturado)}</td>
+                    <td>${formatCurrency(d.totalPagado)}</td>
+                    <td style="font-weight: 700; color: ${saldo > 0.01 ? '#dc2626' : '#10b981'}">${formatCurrency(saldo)}</td>
+                    <td><span class="status-tag ${estadoClass}">${estadoText}</span></td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(num);
+    }
+
+    function formatDate(date) {
+        if (!date || isNaN(date.getTime())) return '-';
+        return date.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+</script>
