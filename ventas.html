@@ -1,0 +1,568 @@
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Repuestos Chinos VZLA - Inteligencia de Negocios | Días Laborados</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{primary:'#D32F2F',dark:'#0f172a'}}}};</script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+    body{font-family:'Inter',system-ui,sans-serif}
+    .chart-container{position:relative;height:300px;width:100%}
+    .chart-container-sm{position:relative;height:250px;width:100%}
+    .table-container{max-height:500px;overflow:auto}
+    .table-container table{width:100%;border-collapse:collapse}
+    .table-container th,.table-container td{padding:8px 12px;text-align:left;border-bottom:1px solid #e2e8f0}
+    .table-container th{background:#f1f5f9;position:sticky;top:0;font-weight:600}
+    .table-container tr:hover{background:#f8fafc}
+    .kpi-daily-card{background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);}
+  </style>
+
+
+
+<header class="bg-white border-b-4 border-primary shadow-sm px-6 py-4 flex flex-col md:flex-row md:items-center justify-between sticky top-0 z-50">
+  <div class="flex items-center">
+    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 100 100" fill="none" class="mr-3">
+      <path d="M15 45 L50 35 L85 45 L75 50 L50 42 L25 50 Z" fill="#D32F2F"></path>
+      <rect x="25" y="55" width="50" height="8" fill="#D32F2F"></rect>
+      <rect x="20" y="70" width="60" height="8" fill="#D32F2F"></rect>
+      <rect x="15" y="85" width="70" height="8" fill="#D32F2F"></rect>
+      <rect x="42" y="50" width="16" height="40" fill="#D32F2F"></rect>
+    </svg>
+    <div>
+      <h1 class="text-2xl font-black tracking-tight text-slate-900">Repuestos Chinos <span class="text-primary">VZLA</span></h1>
+      <p class="text-sm font-medium text-slate-500 uppercase tracking-widest mt-1">Ventas · Días Laborados · Productividad Diaria</p>
+    </div>
+  </div>
+  <div class="flex items-center space-x-2 bg-slate-100 px-4 py-2 rounded-full font-semibold text-sm mt-4 md:mt-0">
+    <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+    <span id="dataStatus">Esperando datos...</span>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-8">
+  
+  
+  <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-4">
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div class="flex items-center text-slate-700 font-bold">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mr-2 text-primary">
+          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+        </svg>
+        Filtro de Sucursal (Múltiple):
+      </div>
+      <div class="flex flex-wrap gap-2" id="storeFilters">
+        <button data-store="ALL" class="store-filter-all px-4 py-2 rounded-lg font-bold text-sm transition-all bg-primary text-white shadow-md">Todas las Tiendas</button>
+        <button data-store="PAV" class="store-filter-multi px-4 py-2 rounded-lg font-bold text-sm transition-all bg-slate-100 text-slate-600 hover:bg-slate-200">Aviadores (PAV)</button>
+        <button data-store="SJ" class="store-filter-multi px-4 py-2 rounded-lg font-bold text-sm transition-all bg-slate-100 text-slate-600 hover:bg-slate-200">San Jacinto (SJ)</button>
+        <button data-store="BQ" class="store-filter-multi px-4 py-2 rounded-lg font-bold text-sm transition-all bg-slate-100 text-slate-600 hover:bg-slate-200">Barquisimeto (BQ)</button>
+      </div>
+    </div>
+    
+    <div class="flex flex-col sm:flex-row sm:items-center gap-4 pt-4 border-t border-slate-100">
+      <div class="flex items-center text-slate-700 font-bold">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mr-2 text-primary">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+        Filtrar por Período:
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-2">
+          <label class="text-sm font-medium text-slate-600">Desde:</label>
+          <input type="date" id="dateStart" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-sm font-medium text-slate-600">Hasta:</label>
+          <input type="date" id="dateEnd" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+        </div>
+        <button id="btnApplyDateFilter" class="px-4 py-2 bg-primary text-white rounded-lg font-bold text-sm hover:bg-red-700 transition-colors shadow-sm">Aplicar Filtro</button>
+        <button id="btnClearDateFilter" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-bold text-sm hover:bg-slate-300 transition-colors">Limpiar</button>
+      </div>
+    </div>
+    
+    <div class="flex items-center gap-3 pt-2 border-t border-slate-100">
+      <span class="text-slate-500 font-medium text-sm">Segmento Activo:</span>
+      <div id="segmentFilterUI" class="hidden items-center gap-2">
+        <span class="bg-primary text-white px-3 py-1 rounded-full text-sm font-bold flex items-center shadow-sm">
+          <span id="segmentFilterText">Empresa</span>
+          <button id="btnClearSegment" class="ml-2 hover:bg-white/20 rounded-full w-5 h-5 flex items-center justify-center">✕</button>
+        </span>
+      </div>
+      <span id="noSegmentHint" class="text-xs text-slate-400 italic">Ninguno seleccionado</span>
+      <span id="dateFilterHint" class="text-xs text-primary font-medium ml-auto hidden">📅 Filtro de fechas activo</span>
+    </div>
+  </div>
+
+  
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="bg-white rounded-xl shadow-sm border border-primary/30 p-5">
+      <h3 class="text-primary font-bold text-sm uppercase mb-1" id="kpi-salesLabel">VENTAS $ (Implícita)</h3>
+      <span class="text-3xl font-black text-primary" id="kpi-totalImp">$0.00</span>
+      <p class="text-sm text-slate-500 mt-1">TOTAL (BCV): <span id="kpi-totalBcv">$0.00</span></p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+      <h3 class="text-slate-600 font-bold text-sm uppercase mb-1">TICKET PROMEDIO</h3>
+      <span class="text-3xl font-black text-slate-800" id="kpi-avgTicket">$0.00</span>
+      <p class="text-sm text-slate-500 mt-1"><span id="kpi-tickets">0</span> transacciones</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 kpi-daily-card text-white">
+      <h3 class="font-bold text-sm uppercase text-slate-300 mb-1">📆 DÍAS LABORADOS</h3>
+      <span class="text-3xl font-black text-emerald-400" id="kpi-workingDays">0</span>
+      <p class="text-xs text-slate-300 mt-1">días con ventas &gt; $0</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 kpi-daily-card text-white">
+      <h3 class="font-bold text-sm uppercase text-slate-300 mb-1">📈 VENTAS / DÍA LABORADO</h3>
+      <span class="text-3xl font-black text-emerald-400" id="kpi-salesPerDay">$0.00</span>
+      <p class="text-xs text-slate-300 mt-1">promedio tasa implícita diaria</p>
+    </div>
+  </div>
+  
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="bg-slate-900 text-white rounded-xl shadow-sm border border-slate-800 p-5">
+      <h3 class="font-bold text-sm uppercase text-slate-300 mb-1">MARGEN BRUTO</h3>
+      <span class="text-3xl font-black text-emerald-400" id="kpi-margin">$0.00</span>
+      <p class="text-sm text-slate-400 mt-1">Rentabilidad: <span id="kpi-marginPct">0.00</span>%</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+      <h3 class="text-slate-600 font-bold text-sm uppercase mb-1">COSTO DE VENTA</h3>
+      <span class="text-3xl font-black text-slate-800" id="kpi-totalCost">$0.00</span>
+    </div>
+  </div>
+
+  
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 lg:col-span-2">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-xl font-bold text-slate-900">Evolución Ventas por Mes</h2>
+        <span id="dateRangeLabel" class="text-sm text-slate-500 font-medium hidden"></span>
+      </div>
+      <div class="chart-container"><canvas id="barChart"></canvas></div>
+    </div>
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-xl font-bold text-slate-900 mb-6">Ventas por Segmento</h2>
+      <div class="chart-container-sm"><canvas id="pieChart"></canvas></div>
+      <div class="flex justify-center space-x-4 mt-4 flex-wrap" id="pieLegend"></div>
+    </div>
+  </div>
+
+  
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+    <h2 class="text-xl font-bold text-slate-900 mb-6">Detalle de Ventas con Indicadores de Productividad Diaria</h2>
+    <div class="table-container">
+      <table id="detailTable" class="min-w-full">
+        <thead>
+          <tr class="bg-slate-100">
+            <th>Fecha</th><th>Tienda</th><th>Ticket</th><th>Cliente</th><th>Ventas Imp ($)</th><th>Costo Venta ($)</th><th>Sexo</th><th>Margen %</th><th class="bg-primary/10">📆 Día Laborado</th><th class="bg-primary/10">💰 Venta / Día</th>
+           </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <p class="text-xs text-slate-400 mt-3 italic">* Día Laborado = fecha con ventas &gt;0; Venta/Día = total ventas del día / 1 (referencia diaria). El promedio general se muestra en KPIs.</p>
+  </div>
+
+  <details class="bg-slate-100 rounded-lg p-4 text-sm">
+    <summary class="font-bold cursor-pointer">🔍 Debug &amp; Métricas</summary>
+    <div id="debugInfo" class="mt-3"></div>
+  </details>
+  <div id="connectionStatus" class="text-center text-sm text-slate-500"></div>
+</main>
+
+<script>
+(function() {
+  const CONFIG = {
+    SHEET_URL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQz_Iq9x8epywU3vIi-gU3RHEgPihlibwXxRslKcY9DKx604x9mj7ww-v_FJIZ7R13oA1HGmyuhNyzx/pub?gid=0&single=true&output=csv'
+  };
+
+  // --- NUEVO: Variables para selección múltiple de tiendas ---
+  let selectedStoresSet = new Set(['PAV', 'SJ', 'BQ']); // Por defecto, todas seleccionadas
+  let currentSegmentFilter = null;
+  let rawData = [];
+  let dateStartFilter = null;
+  let dateEndFilter = null;
+  let barChartInstance = null;
+  let pieChartInstance = null;
+  
+  const formatterUSD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+
+  function parseDate(dateStr) {
+    if (!dateStr || typeof dateStr !== 'string') return null;
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      const day = parseInt(parts[0]);
+      const month = parseInt(parts[1]) - 1;
+      const year = parseInt(parts[2]);
+      return new Date(year, month, day);
+    }
+    return null;
+  }
+
+  function getMonthName(date) {
+    if (!date) return '';
+    const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    return months[date.getMonth()];
+  }
+
+  function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') inQuotes = !inQuotes;
+      else if (c === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+      else current += c;
+    }
+    result.push(current.trim());
+    return result;
+  }
+
+  function parseCSV(text) {
+    const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) return [];
+    const headers = parseCSVLine(lines[0]);
+    return lines.slice(1).map(line => {
+      const values = parseCSVLine(line);
+      const obj = {};
+      headers.forEach((h, i) => {
+        let v = values[i] || '';
+        if (v && !isNaN(v) && !isNaN(parseFloat(v)) && v.indexOf(',') === -1) v = parseFloat(v);
+        if (typeof v === 'string' && v.indexOf(',') > -1 && !isNaN(parseFloat(v.replace(',', '.')))) v = parseFloat(v.replace(',', '.'));
+        obj[h] = v;
+      });
+      return obj;
+    });
+  }
+
+  async function loadAndProcessData() {
+    const statusEl = document.getElementById('connectionStatus');
+    const debugEl = document.getElementById('debugInfo');
+    try {
+      statusEl.textContent = '🔄 Cargando datos...';
+      const response = await fetch(CONFIG.SHEET_URL);
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const csvText = await response.text();
+      const data = parseCSV(csvText);
+      if (data.length === 0) throw new Error('Sin datos');
+      
+      rawData = data.filter(row => {
+        if (!row.month || typeof row.month !== 'string') return false;
+        const date = parseDate(row.month);
+        if (!date || isNaN(date.getTime())) return false;
+        row.parsedDate = date;
+        row.monthName = getMonthName(date);
+        row.year = date.getFullYear();
+        row.ventasImp = parseFloat(row.ventasImp) || 0;
+        row.costoVta = parseFloat(row.costoVta) || 0;
+        row.totalVta = parseFloat(row.totalVta) || 0;
+        return true;
+      });
+      
+      debugEl.innerHTML = `<p>✅ <strong>${rawData.length}</strong> registros cargados</p><p class="mt-2 text-xs">Rango: ${rawData[0]?.month || 'N/A'} a ${rawData[rawData.length-1]?.month || 'N/A'}</p>`;
+      statusEl.textContent = '✅ Actualizado: ' + new Date().toLocaleTimeString('es-VE');
+      document.getElementById('dataStatus').textContent = 'Datos actualizados';
+      renderDashboard();
+    } catch (error) {
+      console.error(error);
+      statusEl.textContent = '⚠️ Error: ' + error.message;
+      debugEl.innerHTML = `<p class="text-red-600">Error: ${error.message}. Usando datos demo.</p>`;
+      rawData = getSampleData();
+      renderDashboard();
+    }
+  }
+
+  // FILTRO PRINCIPAL: combina tiendas seleccionadas (múltiple), fechas y segmento
+  function filterData() {
+    let filtered = [...rawData];
+    // Filtro por tiendas (selección múltiple)
+    if (selectedStoresSet.size > 0 && !selectedStoresSet.has('ALL')) {
+      filtered = filtered.filter(row => selectedStoresSet.has(row.store));
+    }
+    if (dateStartFilter) {
+      const startDate = new Date(dateStartFilter);
+      filtered = filtered.filter(row => row.parsedDate >= startDate);
+    }
+    if (dateEndFilter) {
+      const endDate = new Date(dateEndFilter);
+      endDate.setHours(23, 59, 59);
+      filtered = filtered.filter(row => row.parsedDate <= endDate);
+    }
+    return filtered;
+  }
+
+  // Días laborados (usando filteredData y segmento activo)
+  function calculateWorkingDaysMetrics(data, segmentFilter) {
+    let filteredData = [...data];
+    if (segmentFilter) filteredData = filteredData.filter(row => (row.SEXO || '').toUpperCase() === segmentFilter);
+    
+    const daysWithSales = new Set();
+    filteredData.forEach(row => {
+      if (row.ventasImp > 0) {
+        const dateKey = row.parsedDate.toISOString().split('T')[0];
+        daysWithSales.add(dateKey);
+      }
+    });
+    const workingDays = daysWithSales.size;
+    const totalSales = filteredData.reduce((sum, row) => sum + row.ventasImp, 0);
+    const salesPerWorkingDay = workingDays > 0 ? totalSales / workingDays : 0;
+    
+    return { workingDays, salesPerWorkingDay, totalSales };
+  }
+
+  function aggregateByMonth(data) {
+    const monthly = {};
+    data.forEach(row => {
+      const monthKey = `${row.year}-${row.parsedDate.getMonth()}`;
+      if (!monthly[monthKey]) {
+        monthly[monthKey] = { monthName: row.monthName, year: row.year, monthNum: row.parsedDate.getMonth(), ventasImp: 0, costoVta: 0, totalVta: 0 };
+      }
+      monthly[monthKey].ventasImp += row.ventasImp;
+      monthly[monthKey].costoVta += row.costoVta;
+      monthly[monthKey].totalVta += row.totalVta;
+    });
+    return Object.values(monthly).sort((a,b) => a.year !== b.year ? a.year - b.year : a.monthNum - b.monthNum);
+  }
+
+  function calculateKPIs(data, segmentFilter) {
+    let filteredData = [...data];
+    if (segmentFilter) filteredData = filteredData.filter(row => (row.SEXO || '').toUpperCase() === segmentFilter);
+    const totalSales = filteredData.reduce((sum, row) => sum + row.ventasImp, 0);
+    const totalBcv = filteredData.reduce((sum, row) => sum + row.totalVta, 0);
+    const totalCost = filteredData.reduce((sum, row) => sum + row.costoVta, 0);
+    const margin = totalSales - totalCost;
+    const marginPct = totalSales > 0 ? (margin / totalSales) * 100 : 0;
+    const uniqueTickets = new Set(filteredData.map(row => row.tickets).filter(t => t));
+    const totalTickets = uniqueTickets.size;
+    const avgTicket = totalTickets > 0 ? totalSales / totalTickets : 0;
+    let salesLabel = 'VENTAS $ (Implícita)';
+    if (segmentFilter === 'M') salesLabel = 'VENTAS MASCULINO';
+    else if (segmentFilter === 'F') salesLabel = 'VENTAS FEMENINO';
+    else if (segmentFilter === 'E') salesLabel = 'VENTAS EMPRESA';
+    return { totalSales, totalBcv, totalCost, margin, marginPct, avgTicket, totalTickets, salesLabel };
+  }
+
+  function getSegmentData(data) {
+    const segments = { M: 0, F: 0, E: 0 };
+    data.forEach(row => {
+      const sexo = (row.SEXO || '').toUpperCase();
+      if (sexo === 'M') segments.M += row.ventasImp;
+      else if (sexo === 'F') segments.F += row.ventasImp;
+      else if (sexo === 'E') segments.E += row.ventasImp;
+    });
+    return [
+      { name: 'Masculino (M)', value: segments.M, color: '#0f172a' },
+      { name: 'Femenino (F)', value: segments.F, color: '#D32F2F' },
+      { name: 'Empresa (E)', value: segments.E, color: '#94a3b8' }
+    ].filter(d => d.value > 0);
+  }
+
+  function updateKPIs(summary, workingMetrics) {
+    document.getElementById('kpi-salesLabel').textContent = summary.salesLabel;
+    document.getElementById('kpi-totalImp').textContent = formatterUSD.format(summary.totalSales);
+    document.getElementById('kpi-totalBcv').textContent = formatterUSD.format(summary.totalBcv);
+    document.getElementById('kpi-avgTicket').textContent = formatterUSD.format(summary.avgTicket);
+    document.getElementById('kpi-tickets').textContent = summary.totalTickets.toLocaleString('en-US');
+    document.getElementById('kpi-margin').textContent = formatterUSD.format(summary.margin);
+    document.getElementById('kpi-marginPct').textContent = summary.marginPct.toFixed(2);
+    document.getElementById('kpi-totalCost').textContent = formatterUSD.format(summary.totalCost);
+    document.getElementById('kpi-workingDays').textContent = workingMetrics.workingDays;
+    document.getElementById('kpi-salesPerDay').textContent = formatterUSD.format(workingMetrics.salesPerWorkingDay);
+  }
+
+  function renderDetailTable() {
+    const filtered = filterData();
+    const dailySalesMap = new Map();
+    filtered.forEach(row => {
+      const dateKey = row.parsedDate.toISOString().split('T')[0];
+      const current = dailySalesMap.get(dateKey) || 0;
+      dailySalesMap.set(dateKey, current + row.ventasImp);
+    });
+    
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+    filtered.forEach(row => {
+      const margenPct = row.ventasImp > 0 ? ((row.ventasImp - row.costoVta) / row.ventasImp * 100).toFixed(2) : 0;
+      const dateKey = row.parsedDate.toISOString().split('T')[0];
+      const totalSalesDay = dailySalesMap.get(dateKey) || row.ventasImp;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="font-medium">${row.month || ''}</td>
+        <td>${row.store || ''}</td>
+        <td>${row.tickets || ''}</td>
+        <td>${row.CLIENTE || ''}</td>
+        <td class="text-right font-semibold text-slate-700">${formatterUSD.format(row.ventasImp)}</td>
+        <td class="text-right text-slate-600">${formatterUSD.format(row.costoVta)}</td>
+        <td>${row.SEXO || ''}</td>
+        <td class="text-right font-bold ${margenPct > 0 ? 'text-emerald-600' : 'text-red-600'}">${margenPct}%</td>
+        <td class="text-center bg-primary/5 font-mono">✅ ${dateKey}</td>
+        <td class="text-right font-bold text-primary">${formatterUSD.format(totalSalesDay)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function initBarChart(monthlyData) {
+    const canvas = document.getElementById('barChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (barChartInstance) barChartInstance.destroy();
+    if (!monthlyData || monthlyData.length === 0) {
+      barChartInstance = new Chart(ctx, { type: 'bar', data: { labels: [], datasets: [] }, options: { responsive: true } });
+      return;
+    }
+    const labels = monthlyData.map(d => `${d.monthName} ${d.year}`);
+    const values = monthlyData.map(d => d.ventasImp);
+    barChartInstance = new Chart(ctx, {
+      type: 'bar', data: { labels, datasets: [{ label: 'Ventas', data: values, backgroundColor: '#D32F2F', borderRadius: 4 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => 'Ventas: ' + formatterUSD.format(ctx.parsed.y) } } }, scales: { y: { beginAtZero: true, ticks: { callback: (value) => '$' + (value / 1000).toFixed(1) + 'k' } } } }
+    });
+  }
+
+  function initPieChart(segmentData) {
+    const canvas = document.getElementById('pieChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (pieChartInstance) pieChartInstance.destroy();
+    if (!segmentData || segmentData.length === 0) {
+      pieChartInstance = new Chart(ctx, { type: 'doughnut', data: { labels: [], datasets: [] } });
+      return;
+    }
+    pieChartInstance = new Chart(ctx, {
+      type: 'doughnut', data: { labels: segmentData.map(d => d.name), datasets: [{ data: segmentData.map(d => d.value), backgroundColor: segmentData.map(d => d.color), borderWidth: 0, cutout: '65%' }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context) => { const total = context.dataset.data.reduce((a,b)=>a+b,0); const pct = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : 0; return `${context.label}: ${formatterUSD.format(context.parsed)} (${pct}%)`; } } } }, onClick: (evt, elements) => { if (elements.length) { const idx = elements[0].index; const label = pieChartInstance.data.labels[idx]; let code = label.includes('(M)') ? 'M' : label.includes('(F)') ? 'F' : 'E'; if (code) { currentSegmentFilter = currentSegmentFilter === code ? null : code; updateSegmentFilterUI(); renderDashboard(); } } } }
+    });
+  }
+
+  function updatePieLegend(segmentData) {
+    const legendEl = document.getElementById('pieLegend');
+    legendEl.innerHTML = segmentData.map(d => `<div class="flex items-center text-sm font-bold text-slate-700 cursor-pointer hover:opacity-70" data-segment="${d.name.includes('(M)') ? 'M' : d.name.includes('(F)') ? 'F' : 'E'}"><div class="w-3 h-3 rounded-full mr-2" style="background: ${d.color}"></div>${d.name}</div>`).join('');
+    document.querySelectorAll('#pieLegend > div').forEach(el => { el.addEventListener('click', () => { const segment = el.dataset.segment; if (segment) { currentSegmentFilter = currentSegmentFilter === segment ? null : segment; updateSegmentFilterUI(); renderDashboard(); } }); });
+  }
+
+  function updateSegmentFilterUI() {
+    const ui = document.getElementById('segmentFilterUI');
+    const hint = document.getElementById('noSegmentHint');
+    const text = document.getElementById('segmentFilterText');
+    if (currentSegmentFilter) { ui.classList.remove('hidden'); ui.classList.add('flex'); hint.classList.add('hidden'); text.textContent = currentSegmentFilter === 'M' ? 'Masculino (M)' : currentSegmentFilter === 'F' ? 'Femenino (F)' : 'Empresa (E)'; }
+    else { ui.classList.add('hidden'); ui.classList.remove('flex'); hint.classList.remove('hidden'); }
+  }
+
+  function renderDashboard() {
+    const filteredData = filterData();
+    const monthlyData = aggregateByMonth(filteredData);
+    const segmentData = getSegmentData(filteredData);
+    const kpis = calculateKPIs(filteredData, currentSegmentFilter);
+    const workingMetrics = calculateWorkingDaysMetrics(filteredData, currentSegmentFilter);
+    
+    updateKPIs(kpis, workingMetrics);
+    updatePieLegend(segmentData);
+    initBarChart(monthlyData);
+    initPieChart(segmentData);
+    renderDetailTable();
+  }
+
+  // --- NUEVA LÓGICA DE SELECCIÓN MÚLTIPLE ---
+  function updateStoreUI() {
+    // Actualizar visual de botones individuales
+    document.querySelectorAll('.store-filter-multi').forEach(btn => {
+      const store = btn.dataset.store;
+      if (selectedStoresSet.has(store)) {
+        btn.classList.remove('bg-slate-100', 'text-slate-600');
+        btn.classList.add('bg-primary', 'text-white', 'shadow-md');
+      } else {
+        btn.classList.remove('bg-primary', 'text-white', 'shadow-md');
+        btn.classList.add('bg-slate-100', 'text-slate-600');
+      }
+    });
+    // Lógica del botón "Todas las Tiendas"
+    const allBtn = document.querySelector('.store-filter-all');
+    const allSelected = (selectedStoresSet.size === 3 && selectedStoresSet.has('PAV') && selectedStoresSet.has('SJ') && selectedStoresSet.has('BQ'));
+    if (allSelected) {
+      allBtn.classList.remove('bg-slate-100', 'text-slate-600');
+      allBtn.classList.add('bg-primary', 'text-white', 'shadow-md');
+    } else {
+      allBtn.classList.remove('bg-primary', 'text-white', 'shadow-md');
+      allBtn.classList.add('bg-slate-100', 'text-slate-600');
+    }
+  }
+
+  function setupEventListeners() {
+    // Listeners para botones individuales
+    document.querySelectorAll('.store-filter-multi').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const store = this.dataset.store;
+        if (selectedStoresSet.has(store)) {
+          selectedStoresSet.delete(store);
+        } else {
+          selectedStoresSet.add(store);
+        }
+        // Si después del cambio no hay ninguna seleccionada, volvemos a seleccionar todas (para evitar vacío)
+        if (selectedStoresSet.size === 0) {
+          selectedStoresSet = new Set(['PAV', 'SJ', 'BQ']);
+        }
+        updateStoreUI();
+        renderDashboard();
+      });
+    });
+    // Botón "Todas las Tiendas"
+    const allBtn = document.querySelector('.store-filter-all');
+    if (allBtn) {
+      allBtn.addEventListener('click', function() {
+        selectedStoresSet = new Set(['PAV', 'SJ', 'BQ']);
+        updateStoreUI();
+        renderDashboard();
+      });
+    }
+
+    document.getElementById('btnApplyDateFilter')?.addEventListener('click', () => {
+      const startInput = document.getElementById('dateStart').value;
+      const endInput = document.getElementById('dateEnd').value;
+      dateStartFilter = startInput || null;
+      dateEndFilter = endInput || null;
+      const hint = document.getElementById('dateFilterHint');
+      const label = document.getElementById('dateRangeLabel');
+      if (dateStartFilter || dateEndFilter) {
+        hint.classList.remove('hidden');
+        const startText = dateStartFilter ? new Date(dateStartFilter).toLocaleDateString('es-VE') : 'Inicio';
+        const endText = dateEndFilter ? new Date(dateEndFilter).toLocaleDateString('es-VE') : 'Fin';
+        label.textContent = `${startText} - ${endText}`;
+        label.classList.remove('hidden');
+      } else { hint.classList.add('hidden'); label.classList.add('hidden'); }
+      renderDashboard();
+    });
+    document.getElementById('btnClearDateFilter')?.addEventListener('click', () => {
+      document.getElementById('dateStart').value = ''; document.getElementById('dateEnd').value = '';
+      dateStartFilter = null; dateEndFilter = null;
+      document.getElementById('dateFilterHint').classList.add('hidden');
+      document.getElementById('dateRangeLabel').classList.add('hidden');
+      renderDashboard();
+    });
+    document.getElementById('btnClearSegment')?.addEventListener('click', () => { currentSegmentFilter = null; updateSegmentFilterUI(); renderDashboard(); });
+  }
+
+  function getSampleData() {
+    const sample = [];
+    const dates = ['15/01/2026', '16/01/2026', '17/01/2026', '18/01/2026', '19/01/2026', '20/01/2026', '21/01/2026'];
+    const stores = ['SJ', 'PAV', 'BQ'];
+    const sexes = ['M', 'F', 'E'];
+    for (let i = 0; i < 80; i++) {
+      const dateStr = dates[Math.floor(Math.random() * dates.length)];
+      const date = parseDate(dateStr);
+      sample.push({
+        month: dateStr, tickets: `TICKET${i}`, store: stores[Math.floor(Math.random() * stores.length)],
+        CLIENTE: `Cliente ${i}`, SEXO: sexes[Math.floor(Math.random() * sexes.length)],
+        ventasImp: Math.random() * 500 + 10, costoVta: Math.random() * 300 + 5, totalVta: Math.random() * 600 + 20,
+        parsedDate: date, monthName: getMonthName(date), year: 2026
+      });
+    }
+    return sample;
+  }
+
+  function init() { setupEventListeners(); loadAndProcessData(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
