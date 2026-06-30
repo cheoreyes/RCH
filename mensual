@@ -1,0 +1,507 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>Repuestos Chinos VZLA - Informe Financiero Mensual | Margen &amp; Utilidad</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={theme:{extend:{colors:{primary:'#D32F2F',dark:'#0f172a'}}}};</script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  body{font-family:'Inter',system-ui,sans-serif}
+  .chart-container{position:relative;height:300px;width:100%}
+  .chart-container-sm{position:relative;height:250px;width:100%}
+  .table-container{max-height:500px;overflow:auto}
+  .table-container table{width:100%;border-collapse:collapse}
+  .table-container th,.table-container td{padding:10px 12px;text-align:left;border-bottom:1px solid #e2e8f0}
+  .table-container th{background:#f1f5f9;position:sticky;top:0;font-weight:600}
+  .table-container tr:hover{background:#f8fafc}
+  .profit-card{background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);}
+  .positive{color:#10b981;font-weight:700;}
+  .negative{color:#ef4444;font-weight:700;}
+</style>
+
+<header class="bg-white border-b-4 border-primary shadow-sm px-6 py-4 flex flex-col md:flex-row md:items-center justify-between sticky top-0 z-50">
+  <div class="flex items-center">
+    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 100 100" fill="none" class="mr-3">
+      <path d="M15 45 L50 35 L85 45 L75 50 L50 42 L25 50 Z" fill="#D32F2F"></path>
+      <rect x="25" y="55" width="50" height="8" fill="#D32F2F"></rect>
+      <rect x="20" y="70" width="60" height="8" fill="#D32F2F"></rect>
+      <rect x="15" y="85" width="70" height="8" fill="#D32F2F"></rect>
+      <rect x="42" y="50" width="16" height="40" fill="#D32F2F"></rect>
+    </svg>
+    <div>
+      <h1 class="text-2xl font-black tracking-tight text-slate-900">Repuestos Chinos <span class="text-primary">VZLA</span></h1>
+      <p class="text-sm font-medium text-slate-500 uppercase tracking-widest mt-1">Análisis Financiero Mensual · Margen Bruto · Utilidad Neta</p>
+    </div>
+  </div>
+  <div class="flex items-center space-x-2 bg-slate-100 px-4 py-2 rounded-full font-semibold text-sm mt-4 md:mt-0">
+    <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+    <span id="dataStatus">Esperando datos...</span>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-8">
+
+  
+  <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-4">
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div class="flex items-center text-slate-700 font-bold">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mr-2 text-primary">
+          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+        </svg>
+        Filtrar por Empresa:
+      </div>
+      <div class="flex flex-wrap gap-2" id="companyFilters">
+        <button data-company="ALL" class="company-filter-all px-4 py-2 rounded-lg font-bold text-sm transition-all bg-primary text-white shadow-md">Todas</button>
+        <button data-company="RCH MCY" class="company-filter px-4 py-2 rounded-lg font-bold text-sm transition-all bg-slate-100 text-slate-600 hover:bg-slate-200">RCH MCY</button>
+        <button data-company="RCH BQ" class="company-filter px-4 py-2 rounded-lg font-bold text-sm transition-all bg-slate-100 text-slate-600 hover:bg-slate-200">RCH BQ</button>
+        <button data-company="RCH ONLINE" class="company-filter px-4 py-2 rounded-lg font-bold text-sm transition-all bg-slate-100 text-slate-600 hover:bg-slate-200">RCH ONLINE</button>
+      </div>
+    </div>
+    <div class="flex flex-col sm:flex-row sm:items-center gap-4 pt-4 border-t border-slate-100">
+      <div class="flex items-center text-slate-700 font-bold">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mr-2 text-primary">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+        Filtrar por Rango de Meses:
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-2">
+          <label class="text-sm font-medium text-slate-600">Mes Desde:</label>
+          <select id="monthStart" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+            <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option><option value="4">Abril</option>
+            <option value="5">Mayo</option><option value="6">Junio</option><option value="7">Julio</option><option value="8">Agosto</option>
+            <option value="9">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-sm font-medium text-slate-600">Mes Hasta:</label>
+          <select id="monthEnd" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+            <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option><option value="4">Abril</option>
+            <option value="5">Mayo</option><option value="6">Junio</option><option value="7">Julio</option><option value="8">Agosto</option>
+            <option value="9">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12" selected="">Diciembre</option>
+          </select>
+        </div>
+        <button id="btnApplyMonthFilter" class="px-4 py-2 bg-primary text-white rounded-lg font-bold text-sm hover:bg-red-700 transition-colors shadow-sm">Aplicar Filtro</button>
+        <button id="btnClearMonthFilter" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-bold text-sm hover:bg-slate-300 transition-colors">Limpiar</button>
+      </div>
+    </div>
+  </div>
+
+  
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="bg-white rounded-xl shadow-sm border border-primary/30 p-5">
+      <h3 class="text-primary font-bold text-sm uppercase mb-1">VENTAS TOTALES (IMP)</h3>
+      <span class="text-3xl font-black text-primary" id="kpi-totalSales">$0.00</span>
+      <p class="text-sm text-slate-500 mt-1">Referencial BCV: <span id="kpi-totalBcv">$0.00</span></p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+      <h3 class="text-slate-600 font-bold text-sm uppercase mb-1">COSTO DE VENTAS</h3>
+      <span class="text-3xl font-black text-slate-800" id="kpi-totalCost">$0.00</span>
+      <p class="text-sm text-slate-500 mt-1">Margen Bruto: <span id="kpi-grossMarginPct" class="font-bold">0%</span></p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 profit-card text-white">
+      <h3 class="font-bold text-sm uppercase text-slate-300 mb-1">💰 MARGEN BRUTO</h3>
+      <span class="text-3xl font-black text-emerald-400" id="kpi-grossProfit">$0.00</span>
+      <p class="text-xs text-slate-300 mt-1">Ventas - Costo Venta</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 profit-card text-white">
+      <h3 class="font-bold text-sm uppercase text-slate-300 mb-1">🏢 GASTOS TIENDA</h3>
+      <span class="text-3xl font-black text-amber-400" id="kpi-storeExpenses">$0.00</span>
+      <p class="text-xs text-slate-300 mt-1">Gastos operativos de tienda</p>
+    </div>
+  </div>
+
+  
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl shadow-sm p-5 text-white">
+      <h3 class="font-bold text-sm uppercase text-slate-300 mb-1">📊 UTILIDAD BRUTA</h3>
+      <span class="text-3xl font-black text-emerald-400" id="kpi-operatingProfit">$0.00</span>
+      <p class="text-sm text-slate-300 mt-1">Margen Bruto - Gastos Tienda</p>
+    </div>
+    <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl shadow-sm p-5 text-white">
+      <h3 class="font-bold text-sm uppercase text-slate-300 mb-1">📉 OTROS GASTOS</h3>
+      <span class="text-3xl font-black text-rose-400" id="kpi-otherExpenses">$0.00</span>
+      <p class="text-sm text-slate-300 mt-1">Extras + Personales + Intereses</p>
+    </div>
+    <div class="bg-gradient-to-br from-primary/90 to-red-800 rounded-xl shadow-sm p-5 text-white">
+      <h3 class="font-bold text-sm uppercase text-slate-200 mb-1">🎯 UTILIDAD NETA</h3>
+      <span class="text-4xl font-black" id="kpi-netProfit">$0.00</span>
+      <p class="text-sm text-slate-200 mt-1">Utilidad Bruta - Otros Gastos</p>
+    </div>
+  </div>
+
+  
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-xl font-bold text-slate-900 mb-6">Evolución Mensual de Ventas y Costos</h2>
+      <div class="chart-container"><canvas id="lineChart"></canvas></div>
+    </div>
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-xl font-bold text-slate-900 mb-6">Utilidad Neta por Mes</h2>
+      <div class="chart-container"><canvas id="profitChart"></canvas></div>
+    </div>
+  </div>
+
+  
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+    <h2 class="text-xl font-bold text-slate-900 mb-6">Detalle Financiero Mensual</h2>
+    <div class="table-container">
+      <table id="detailTable" class="min-w-full">
+        <thead>
+          <tr class="bg-slate-100">
+            <th>Mes</th><th>Ventas IMP ($)</th><th>Ventas BCV ($)</th><th>Costo Venta ($)</th><th>Margen Bruto ($)</th><th>Margen %</th>
+            <th>Gastos Tienda ($)</th><th>Utilidad Bruta ($)</th><th>Otros Gastos ($)</th><th class="bg-primary/10">Utilidad Neta ($)</th><th class="bg-primary/10">Neto %</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+    <h2 class="text-xl font-bold text-slate-900 mb-6">Desglose de Otros Gastos</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="bg-slate-50 rounded-lg p-4">
+        <h3 class="font-semibold text-slate-700">Gastos Extras</h3>
+        <p class="text-2xl font-bold text-slate-800" id="detail-extraExpenses">$0.00</p>
+      </div>
+      <div class="bg-slate-50 rounded-lg p-4">
+        <h3 class="font-semibold text-slate-700">Gastos Personales</h3>
+        <p class="text-2xl font-bold text-slate-800" id="detail-personalExpenses">$0.00</p>
+      </div>
+      <div class="bg-slate-50 rounded-lg p-4">
+        <h3 class="font-semibold text-slate-700">Intereses</h3>
+        <p class="text-2xl font-bold text-slate-800" id="detail-interestExpenses">$0.00</p>
+      </div>
+    </div>
+  </div>
+
+  <details class="bg-slate-100 rounded-lg p-4 text-sm">
+    <summary class="font-bold cursor-pointer">🔍 Debug &amp; Datos Cargados</summary>
+    <div id="debugInfo" class="mt-3 text-xs"></div>
+  </details>
+  <div id="connectionStatus" class="text-center text-sm text-slate-500 pb-8"></div>
+</main>
+
+<script>
+(function() {
+  const CONFIG = {
+    SHEET_URL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQNYg-Dv3x9VcaKF78jubHC9lfkqPlnQp9WZBh30X932tJVbk8d3tfx5UM6dCvIMruy8Bc7WwwlqL29/pub?output=csv'
+  };
+
+  let rawData = [];
+  let selectedCompany = 'ALL';
+  let monthStartFilter = 1;
+  let monthEndFilter = 12;
+  
+  let lineChartInstance = null;
+  let profitChartInstance = null;
+
+  const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const formatterUSD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+
+  function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') inQuotes = !inQuotes;
+      else if (c === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+      else current += c;
+    }
+    result.push(current.trim());
+    return result;
+  }
+
+  function parseCSV(text) {
+    const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) return [];
+    const headers = parseCSVLine(lines[0]);
+    return lines.slice(1).map(line => {
+      const values = parseCSVLine(line);
+      const obj = {};
+      headers.forEach((h, i) => {
+        let v = values[i] || '';
+        if (v && !isNaN(v) && !isNaN(parseFloat(v)) && v.indexOf(',') === -1) v = parseFloat(v);
+        if (typeof v === 'string' && v.indexOf(',') > -1 && !isNaN(parseFloat(v.replace(',', '.')))) v = parseFloat(v.replace(',', '.'));
+        obj[h] = v;
+      });
+      return obj;
+    });
+  }
+
+  async function loadAndProcessData() {
+    const statusEl = document.getElementById('connectionStatus');
+    const debugEl = document.getElementById('debugInfo');
+    try {
+      statusEl.textContent = '🔄 Cargando datos financieros...';
+      const response = await fetch(CONFIG.SHEET_URL);
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const csvText = await response.text();
+      const data = parseCSV(csvText);
+      
+      rawData = data.filter(row => {
+        const mes = parseInt(row.Mes);
+        if (isNaN(mes) || mes < 1 || mes > 12) return false;
+        row.mesNum = mes;
+        row.mesNombre = monthNames[mes - 1];
+        row.ventasImp = parseFloat(row['$  (IMP)']) || 0;
+        row.ventasBcv = parseFloat(row['$  (BCV)']) || 0;
+        return true;
+      });
+      
+      debugEl.innerHTML = `<p>✅ <strong>${rawData.length}</strong> registros cargados</p><p class="mt-1">Empresas: RCH MCY, RCH BQ, RCH ONLINE<br>Tipos: VENTAS, COSTOS VTA, GASTOS TIENDA, GASTOS EXTRAS, GASTOS PERSONALES, INTERESES</p>`;
+      statusEl.textContent = '✅ Datos actualizados: ' + new Date().toLocaleTimeString('es-VE');
+      document.getElementById('dataStatus').textContent = 'Datos financieros cargados';
+      renderDashboard();
+    } catch (error) {
+      console.error(error);
+      statusEl.textContent = '⚠️ Error: ' + error.message;
+      debugEl.innerHTML = `<p class="text-red-600">Error cargando datos. Verifica la hoja de cálculo.</p>`;
+      rawData = [];
+      renderDashboard();
+    }
+  }
+
+  function filterData() {
+    let filtered = [...rawData];
+    if (selectedCompany !== 'ALL') {
+      filtered = filtered.filter(row => row.Empresa === selectedCompany);
+    }
+    filtered = filtered.filter(row => row.mesNum >= monthStartFilter && row.mesNum <= monthEndFilter);
+    return filtered;
+  }
+
+  function aggregateMonthlyData(filteredData) {
+    const monthly = {};
+    for (let m = monthStartFilter; m <= monthEndFilter; m++) {
+      monthly[m] = {
+        mesNum: m,
+        mesNombre: monthNames[m-1],
+        ventasImp: 0, ventasBcv: 0, costoVenta: 0, gastosTienda: 0,
+        gastosExtras: 0, gastosPersonales: 0, intereses: 0
+      };
+    }
+    
+    filteredData.forEach(row => {
+      const m = row.mesNum;
+      if (!monthly[m]) return;
+      const tipo = row.Tipo;
+      const monto = row.ventasImp;
+      
+      if (tipo === 'VENTAS') {
+        monthly[m].ventasImp += monto;
+        monthly[m].ventasBcv += row.ventasBcv;
+      } else if (tipo === 'COSTOS VTA') {
+        monthly[m].costoVenta += monto;
+      } else if (tipo === 'GASTOS TIENDA') {
+        monthly[m].gastosTienda += monto;
+      } else if (tipo === 'GASTOS EXTRAS') {
+        monthly[m].gastosExtras += monto;
+      } else if (tipo === 'GASTOS PERSONALES') {
+        monthly[m].gastosPersonales += monto;
+      } else if (tipo === 'INTERESES') {
+        monthly[m].intereses += monto;
+      }
+    });
+    
+    return Object.values(monthly).sort((a,b) => a.mesNum - b.mesNum);
+  }
+
+  function calculateTotals(monthlyData) {
+    let totalSales = 0, totalBcv = 0, totalCost = 0, totalStoreExpenses = 0;
+    let totalExtra = 0, totalPersonal = 0, totalInterest = 0;
+    
+    monthlyData.forEach(m => {
+      totalSales += m.ventasImp;
+      totalBcv += m.ventasBcv;
+      totalCost += m.costoVenta;
+      totalStoreExpenses += m.gastosTienda;
+      totalExtra += m.gastosExtras;
+      totalPersonal += m.gastosPersonales;
+      totalInterest += m.intereses;
+    });
+    
+    const grossProfit = totalSales - totalCost;
+    const grossMarginPct = totalSales > 0 ? (grossProfit / totalSales) * 100 : 0;
+    const operatingProfit = grossProfit - totalStoreExpenses;
+    const otherExpenses = totalExtra + totalPersonal + totalInterest;
+    const netProfit = operatingProfit - otherExpenses;
+    const netMarginPct = totalSales > 0 ? (netProfit / totalSales) * 100 : 0;
+    
+    return { totalSales, totalBcv, totalCost, totalStoreExpenses, grossProfit, grossMarginPct,
+             operatingProfit, otherExpenses, netProfit, netMarginPct, totalExtra, totalPersonal, totalInterest };
+  }
+
+  function updateKPIs(totals) {
+    document.getElementById('kpi-totalSales').textContent = formatterUSD.format(totals.totalSales);
+    document.getElementById('kpi-totalBcv').textContent = formatterUSD.format(totals.totalBcv);
+    document.getElementById('kpi-totalCost').textContent = formatterUSD.format(totals.totalCost);
+    document.getElementById('kpi-grossMarginPct').textContent = totals.grossMarginPct.toFixed(1) + '%';
+    document.getElementById('kpi-grossProfit').textContent = formatterUSD.format(totals.grossProfit);
+    document.getElementById('kpi-storeExpenses').textContent = formatterUSD.format(totals.totalStoreExpenses);
+    document.getElementById('kpi-operatingProfit').textContent = formatterUSD.format(totals.operatingProfit);
+    document.getElementById('kpi-otherExpenses').textContent = formatterUSD.format(totals.otherExpenses);
+    document.getElementById('kpi-netProfit').textContent = formatterUSD.format(totals.netProfit);
+    
+    document.getElementById('detail-extraExpenses').textContent = formatterUSD.format(totals.totalExtra);
+    document.getElementById('detail-personalExpenses').textContent = formatterUSD.format(totals.totalPersonal);
+    document.getElementById('detail-interestExpenses').textContent = formatterUSD.format(totals.totalInterest);
+  }
+
+  function renderDetailTable(monthlyData, totals) {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+    
+    monthlyData.forEach(m => {
+      const grossProfit = m.ventasImp - m.costoVenta;
+      const grossMargin = m.ventasImp > 0 ? (grossProfit / m.ventasImp) * 100 : 0;
+      const operatingProfit = grossProfit - m.gastosTienda;
+      const otherExpenses = m.gastosExtras + m.gastosPersonales + m.intereses;
+      const netProfit = operatingProfit - otherExpenses;
+      const netMargin = m.ventasImp > 0 ? (netProfit / m.ventasImp) * 100 : 0;
+      
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="font-bold">${m.mesNombre}</td>
+        <td class="text-right font-semibold">${formatterUSD.format(m.ventasImp)}</td>
+        <td class="text-right text-slate-600">${formatterUSD.format(m.ventasBcv)}</td>
+        <td class="text-right">${formatterUSD.format(m.costoVenta)}</td>
+        <td class="text-right ${grossProfit >= 0 ? 'positive' : 'negative'}">${formatterUSD.format(grossProfit)}</td>
+        <td class="text-right ${grossMargin >= 0 ? 'positive' : 'negative'}">${grossMargin.toFixed(1)}%</td>
+        <td class="text-right">${formatterUSD.format(m.gastosTienda)}</td>
+        <td class="text-right ${operatingProfit >= 0 ? 'positive' : 'negative'}">${formatterUSD.format(operatingProfit)}</td>
+        <td class="text-right">${formatterUSD.format(otherExpenses)}</td>
+        <td class="text-right font-bold ${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}">${formatterUSD.format(netProfit)}</td>
+        <td class="text-right ${netMargin >= 0 ? 'positive' : 'negative'}">${netMargin.toFixed(1)}%</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function initLineChart(monthlyData) {
+    const canvas = document.getElementById('lineChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (lineChartInstance) lineChartInstance.destroy();
+    
+    const labels = monthlyData.map(m => m.mesNombre);
+    const salesData = monthlyData.map(m => m.ventasImp);
+    const costData = monthlyData.map(m => m.costoVenta);
+    
+    lineChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: 'Ventas IMP ($)', data: salesData, borderColor: '#D32F2F', backgroundColor: 'rgba(211,47,47,0.1)', fill: true, tension: 0.3, borderWidth: 3 },
+          { label: 'Costo Venta ($)', data: costData, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.05)', fill: true, tension: 0.3, borderWidth: 2 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatterUSD.format(ctx.parsed.y)}` } } }, scales: { y: { beginAtZero: true, ticks: { callback: (value) => '$' + (value / 1000).toFixed(0) + 'k' } } } }
+    });
+  }
+
+  function initProfitChart(monthlyData) {
+    const canvas = document.getElementById('profitChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (profitChartInstance) profitChartInstance.destroy();
+    
+    const labels = monthlyData.map(m => m.mesNombre);
+    const netProfits = monthlyData.map(m => {
+      const grossProfit = m.ventasImp - m.costoVenta;
+      const operatingProfit = grossProfit - m.gastosTienda;
+      const otherExpenses = m.gastosExtras + m.gastosPersonales + m.intereses;
+      return operatingProfit - otherExpenses;
+    });
+    
+    profitChartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: { labels: labels, datasets: [{ label: 'Utilidad Neta ($)', data: netProfits, backgroundColor: netProfits.map(p => p >= 0 ? '#10b981' : '#ef4444'), borderRadius: 6 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: (ctx) => formatterUSD.format(ctx.parsed.y) } } }, scales: { y: { ticks: { callback: (value) => formatterUSD.format(value) } } } }
+    });
+  }
+
+  function updateCompanyUI() {
+    document.querySelectorAll('.company-filter').forEach(btn => {
+      const company = btn.dataset.company;
+      if (selectedCompany === company) {
+        btn.classList.remove('bg-slate-100', 'text-slate-600');
+        btn.classList.add('bg-primary', 'text-white', 'shadow-md');
+      } else {
+        btn.classList.remove('bg-primary', 'text-white', 'shadow-md');
+        btn.classList.add('bg-slate-100', 'text-slate-600');
+      }
+    });
+    const allBtn = document.querySelector('.company-filter-all');
+    if (selectedCompany === 'ALL') {
+      allBtn.classList.remove('bg-slate-100', 'text-slate-600');
+      allBtn.classList.add('bg-primary', 'text-white', 'shadow-md');
+    } else {
+      allBtn.classList.remove('bg-primary', 'text-white', 'shadow-md');
+      allBtn.classList.add('bg-slate-100', 'text-slate-600');
+    }
+  }
+
+  function renderDashboard() {
+    const filtered = filterData();
+    const monthlyData = aggregateMonthlyData(filtered);
+    const totals = calculateTotals(monthlyData);
+    
+    updateKPIs(totals);
+    renderDetailTable(monthlyData, totals);
+    initLineChart(monthlyData);
+    initProfitChart(monthlyData);
+  }
+
+  function setupEventListeners() {
+    document.querySelectorAll('.company-filter').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedCompany = btn.dataset.company;
+        updateCompanyUI();
+        renderDashboard();
+      });
+    });
+    
+    document.querySelector('.company-filter-all')?.addEventListener('click', () => {
+      selectedCompany = 'ALL';
+      updateCompanyUI();
+      renderDashboard();
+    });
+    
+    document.getElementById('btnApplyMonthFilter')?.addEventListener('click', () => {
+      const start = parseInt(document.getElementById('monthStart').value);
+      const end = parseInt(document.getElementById('monthEnd').value);
+      if (start <= end) {
+        monthStartFilter = start;
+        monthEndFilter = end;
+        renderDashboard();
+      } else {
+        alert('El mes "Desde" debe ser menor o igual al mes "Hasta"');
+      }
+    });
+    
+    document.getElementById('btnClearMonthFilter')?.addEventListener('click', () => {
+      document.getElementById('monthStart').value = '1';
+      document.getElementById('monthEnd').value = '12';
+      monthStartFilter = 1;
+      monthEndFilter = 12;
+      renderDashboard();
+    });
+  }
+
+  function init() {
+    setupEventListeners();
+    loadAndProcessData();
+  }
+  
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
