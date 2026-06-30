@@ -146,10 +146,10 @@
             </div>
             <div class="kpi-card border-purple">
                 <div>
-                    <div class="kpi-title text-purple-600">Traslados</div>
-                    <div class="kpi-value text-gray-800" id="kpi-traslados">0</div>
+                    <div class="kpi-title text-purple-600">Ventas Periodo</div>
+                    <div class="kpi-value text-gray-800" id="kpi-ventas">$ 0,00</div>
                 </div>
-                <div class="kpi-sub">Unidades movidas entre tiendas</div>
+                <div class="kpi-sub">Monto facturado en el periodo</div>
             </div>
         </section>
 
@@ -205,19 +205,16 @@
     </main>
 
     <script>
-        // URL del Web App de Google Apps Script corregido según tus datos
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxv4SMVVQROXRvoBsRYHWZRJBCZNsfAstbhJpUmqGADk_Mjd9PLBBsOv6TxWrvOQxVZ/exec';
         
         let inventoryData = [], purchasesData = [], transfersData = [], ordersData = [];
         let movementStats = {}; 
 
-        // Formateador estándar internacional con símbolo de dólar ($)
         const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
         const unitFormatter = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
         function parseNumber(value) {
             if (value === null || value === undefined || value === '') return 0;
-            // Si viene con formato hispano/venezolano (puntos de mil y coma decimal)
             let str = value.toString().replace(/\./g, '').replace(',', '.');
             let num = parseFloat(str);
             return isNaN(num) ? 0 : num;
@@ -226,7 +223,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             loadData();
             
-            // Eventos automáticos para interactividad en tiempo real
             document.getElementById('searchInput').addEventListener('input', applyFilters);
             document.getElementById('filterProvider').addEventListener('change', applyFilters);
             document.getElementById('filterStore').addEventListener('change', applyFilters);
@@ -242,11 +238,9 @@
                 
                 const result = await response.json();
                 
-                // Mapeo seguro en caso de que las llaves vengan en mayúsculas o minúsculas de la API externa
                 const rawInventory = result.inventario || result.INVENTARIO || [];
                 inventoryData = rawInventory.filter(row => (row.CODIGO || row.Código));
                 
-                // Normalizar nombres de llaves clave para evitar problemas de compatibilidad
                 inventoryData.forEach(item => {
                     item.CODIGO = item.CODIGO || item.Código || '';
                     item.ARTICULO = item.ARTICULO || item.Artículo || '';
@@ -261,7 +255,7 @@
 
                 purchasesData = result.compras || result.COMPRAS || [];
                 transfersData = result.traslados || result.TRASLADOS || [];
-                ordersData = result.pedidos || result.PEDIDOS || result.ventas || [];
+                ordersData = result.pedidos || result.PEDIDOS || result.ventas || result.VENTAS || [];
 
                 preprocessMovementData(); 
                 populateDropdowns();
@@ -313,7 +307,6 @@
             const providers = [...new Set(inventoryData.map(item => item.PROVEEDOR).filter(p => p))].sort();
             const providerSelect = document.getElementById('filterProvider');
             
-            // Limpiar opciones previas manteniendo la opción por defecto
             providerSelect.innerHTML = '<option value="">Todos</option>';
             providers.forEach(p => { 
                 const option = document.createElement('option'); 
@@ -376,6 +369,7 @@
             });
         }
 
+        // LÓGICA DE CORRECCIÓN CON FILTRADO POR TIENDA PARA COMPRAS Y VENTAS PERIODO
         function calculateFilteredKPIs(data) {
             let totalVal = 0, totalUnits = 0, stockAV = 0, valAV = 0, stockSJ = 0, valSJ = 0, stockBQ = 0, valBQ = 0;
             const selectedStore = document.getElementById('filterStore').value;
@@ -386,12 +380,10 @@
                 const qtyBQ = parseNumber(item.CANTIDADBQ);
                 const cost = parseNumber(item.COSTOREPOSICION);
 
-                // Sumar totales globales por sucursal física de forma interna
                 stockAV += qtyAV; valAV += (qtyAV * cost);
                 stockSJ += qtySJ; valSJ += (qtySJ * cost);
                 stockBQ += qtyBQ; valBQ += (qtyBQ * cost);
 
-                // Discriminación dinámica de KPIs principales basados en el filtro de tienda activo
                 let dynamicQty = qtyAV + qtySJ + qtyBQ;
                 if (selectedStore === 'AV') dynamicQty = qtyAV;
                 else if (selectedStore === 'SJ') dynamicQty = qtySJ;
@@ -401,20 +393,29 @@
                 totalVal += (dynamicQty * cost);
             });
 
-            // Actualizar elementos del bloque superior
             document.getElementById('kpi-total-val').innerText = currencyFormatter.format(totalVal);
             document.getElementById('kpi-total-units').innerText = unitFormatter.format(totalUnits);
 
-            // Filtrado de las tarjetas internas de compras y traslados en el rango de fechas seleccionado
             const filteredCodes = new Set(data.map(item => item.CODIGO));
             const dateFrom = document.getElementById('filterDateFrom').value;
             const dateTo = document.getElementById('filterDateTo').value;
             const fromDate = dateFrom ? new Date(dateFrom) : null;
             const toDate = dateTo ? new Date(dateTo) : null;
 
+            // Función para verificar si la tienda del registro coincide con la del selector
+            function matchStoreMovement(movStore, filterStore) {
+                if (!filterStore) return true; 
+                if (!movStore) return false;
+                const ms = movStore.toString().toUpperCase().trim();
+                const fs = filterStore.toUpperCase().trim();
+                return ms === fs || ms.includes(fs); 
+            }
+
+            // Filtrar Compras por artículo, fechas y tienda (Columna TIEN o TIENDA)
             let filteredPurchases = purchasesData.filter(p => {
                 const cod = p.CODIGO || p.Código;
                 if (!filteredCodes.has(cod)) return false;
+                if (!matchStoreMovement(p.TIEN || p.TIENDA, selectedStore)) return false;
                 if (!(p.FECHA || p.Fecha)) return true;
                 const purchaseDate = new Date(p.FECHA || p.Fecha);
                 let inRange = true;
@@ -423,24 +424,37 @@
                 return inRange;
             });
 
-            let filteredTransfers = transfersData.filter(t => {
-                const cod = t.CODIGO || t.Código;
+            let totalPurchases = filteredPurchases.reduce((sum, p) => {
+                let val = p['TOTAL COMPRA'] || p.TOTAL_COMPRA || p.TOTAL || p.Total || p.SUBTOTAL || p.Subtotal || 0;
+                return sum + parseNumber(val);
+            }, 0);
+
+            // Filtrar Ventas por artículo, fechas y tienda (Columna TIEN o TIENDA)
+            let filteredOrders = ordersData.filter(o => {
+                const cod = o.CODIGO || o.Código;
                 if (!filteredCodes.has(cod)) return false;
-                if (!(t.FECHA || t.Fecha)) return true;
-                const transferDate = new Date(t.FECHA || t.Fecha);
+                if (!matchStoreMovement(o.TIEN || o.TIENDA, selectedStore)) return false;
+                if (!(o.FECHA || o.Fecha)) return true;
+                const orderDate = new Date(o.FECHA || o.Fecha);
                 let inRange = true;
-                if (fromDate) inRange = inRange && (transferDate >= fromDate);
-                if (toDate) inRange = inRange && (transferDate <= toDate);
+                if (fromDate) inRange = inRange && (orderDate >= fromDate);
+                if (toDate) inRange = inRange && (orderDate <= toDate);
                 return inRange;
             });
 
-            let totalPurchases = filteredPurchases.reduce((sum, p) => sum + parseNumber(p.TOTAL || p.Total || 0), 0);
-            let totalTransfers = filteredTransfers.reduce((sum, t) => sum + parseNumber(t.CANTIDAD || t.Cantidad || 0), 0);
+            let totalSalesAmount = filteredOrders.reduce((sum, o) => {
+                let val = o.TOTAL || o.Total || o['TOTAL VENTA'] || o.SUBTOTAL || 0;
+                if(val === 0) {
+                    const qty = parseNumber(o.CANTIDAD || o.Cantidad || 0);
+                    const prc = parseNumber(o.PRECIO || o.Precio || 0);
+                    val = qty * prc;
+                }
+                return sum + parseNumber(val);
+            }, 0);
 
             document.getElementById('kpi-compras').innerText = currencyFormatter.format(totalPurchases);
-            document.getElementById('kpi-traslados').innerText = unitFormatter.format(totalTransfers);
+            document.getElementById('kpi-ventas').innerText = currencyFormatter.format(totalSalesAmount);
             
-            // Colocar los valores en los paneles de las sucursales
             document.getElementById('stock-av').innerText = unitFormatter.format(stockAV) + " und";
             document.getElementById('val-av').innerText = currencyFormatter.format(valAV);
             document.getElementById('stock-sj').innerText = unitFormatter.format(stockSJ) + " und";
@@ -458,13 +472,11 @@
             const dateFrom = document.getElementById('filterDateFrom').value;
             const dateTo = document.getElementById('filterDateTo').value;
 
-            // Formatear texto del contador de registros en el encabezado
             let filterInfo = [];
             if(showZeroStock) filterInfo.push("Sin Stock");
             if(dateFrom || dateTo) filterInfo.push("Fechas Filtradas");
             document.getElementById('record-count').innerText = `${data.length} registros ${filterInfo.length > 0 ? '(' + filterInfo.join(', ') + ')' : ''}`;
 
-            // Paginación visual (primeros 500 para rendimiento fluido)
             const displayData = data.slice(0, 500);
             if (displayData.length === 0) { 
                 tbody.innerHTML = '<tr><td colspan="13" class="text-center py-6 text-gray-400 font-medium"><i class="fas fa-search-minus mr-2"></i>No se encontraron resultados con los filtros actuales</td></tr>'; 
