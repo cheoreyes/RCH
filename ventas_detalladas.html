@@ -1,0 +1,473 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Repuestos VZLA - Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>tailwind.config={theme:{extend:{colors:{primary:'#D32F2F',secondary:'#1e40af',dark:'#0f172a',success:'#10b981',warning:'#f59e0b'}}}};</script>
+<style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');body{font-family:'Inter',system-ui,sans-serif}.chart-container{position:relative;height:280px;width:100%}.chart-container-sm{position:relative;height:220px;width:100%}.card{background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1);border:1px solid #e2e8f0}.card-primary{border-color:#D32F2F;border-left:4px solid #D32F2F}.kpi-value{font-size:1.875rem;font-weight:900;line-height:1}.kpi-label{font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em}.table-container{max-height:400px;overflow-y:auto}.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}.status-active{background:#10b981;animation:pulse 2s infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.filter-select{min-width:120px;max-width:180px}.store-checkbox-group{display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center}.store-checkbox{display:inline-flex;align-items:center;gap:0.25rem;background:#f1f5f9;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;cursor:pointer;transition:all 0.2s}.store-checkbox:hover{background:#e2e8f0}.store-checkbox input{width:0.875rem;height:0.875rem;margin:0;cursor:pointer}.store-checkbox input:checked+span{color:#D32F2F;font-weight:700}.pill-button{padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.7rem;font-weight:600;background:#e2e8f0;color:#475569;cursor:pointer;transition:all 0.2s}.pill-button:hover{background:#cbd5e1}</style>
+
+
+
+<header class="bg-white border-b-4 border-primary shadow-sm px-4 py-3 flex flex-col md:flex-row md:items-center justify-between sticky top-0 z-50">
+<div class="flex items-center"><div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center mr-3"><svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg></div>
+<div><h1 class="text-xl font-black tracking-tight text-slate-900">Repuestos <span class="text-primary">VZLA</span></h1><p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Ventas detalladas por Productos</p></div></div>
+<div class="flex items-center space-x-2 bg-slate-100 px-3 py-1.5 rounded-full text-xs font-semibold mt-2 md:mt-0"><span class="status-dot status-active"></span><span id="dataStatus">Conectado</span></div></header>
+
+<main class="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 mt-4 space-y-4">
+
+<div class="card p-3 space-y-3">
+<div class="flex flex-wrap items-center gap-3">
+    <span class="text-sm font-bold text-slate-700 flex items-center">
+        <svg class="w-4 h-4 mr-1 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
+        Filtros:
+    </span>
+    
+    
+    <div class="flex items-center gap-2">
+        <span class="text-xs font-semibold text-slate-600">Tiendas:</span>
+        <div id="storeFilterGroup" class="store-checkbox-group"></div>
+    </div>
+    
+    <span class="text-slate-300">|</span>
+    
+    <select id="filterProvider" class="filter-select px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"><option value="ALL">Todos los Proveedores</option></select>
+    <select id="filterType" class="filter-select px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"><option value="ALL">Todos los Tipos</option></select>
+    <select id="filterApp" class="filter-select px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"><option value="ALL">Todas las Aplicaciones</option></select>
+    
+    <div class="flex items-center gap-1 ml-auto">
+        <input type="date" id="dateStart" class="px-2 py-1.5 border border-slate-300 rounded text-xs">
+        <span class="text-xs text-slate-400">-</span>
+        <input type="date" id="dateEnd" class="px-2 py-1.5 border border-slate-300 rounded text-xs">
+        <button id="btnApplyFilter" class="px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-bold hover:bg-red-700">Aplicar</button>
+        <button id="btnClearFilter" class="px-3 py-1.5 bg-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-300">Limpiar</button>
+    </div>
+</div>
+</div>
+
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+<div class="card card-primary p-3"><p class="kpi-label text-primary">Ventas Totales</p><p class="kpi-value text-primary" id="kpiTotalSales">$0</p><p class="text-xs text-slate-500 mt-1" id="kpiSalesCount">0 ventas</p></div>
+<div class="card p-3"><p class="kpi-label text-slate-600">Costo Total</p><p class="kpi-value text-slate-800" id="kpiTotalCost">$0</p><p class="text-xs text-slate-500 mt-1">Inversión</p></div>
+<div class="card bg-dark text-white p-3"><p class="kpi-label text-slate-300">Margen Bruto</p><p class="kpi-value text-emerald-400" id="kpiMargin">$0</p><p class="text-xs text-slate-400 mt-1" id="kpiMarginPct">0% rentabilidad</p></div>
+<div class="card p-3"><p class="kpi-label text-slate-600">Ticket Promedio</p><p class="kpi-value text-slate-800" id="kpiAvgTicket">$0</p><p class="text-xs text-slate-500 mt-1">por nota</p></div>
+<div class="card p-3"><p class="kpi-label text-slate-600">Unidades</p><p class="kpi-value text-slate-800" id="kpiUnits">0</p><p class="text-xs text-slate-500 mt-1">productos vendidos</p></div>
+<div class="card p-3"><p class="kpi-label text-slate-600">Proveedores</p><p class="kpi-value text-slate-800" id="kpiProviders">0</p><p class="text-xs text-slate-500 mt-1">activos</p></div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+<div class="card p-4"><h3 class="font-bold text-slate-900 mb-3 flex items-center"><svg class="w-4 h-4 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>Ventas por Mes</h3><div class="chart-container"><canvas id="chartMonthly"></canvas></div></div>
+<div class="card p-4"><h3 class="font-bold text-slate-900 mb-3 flex items-center"><svg class="w-4 h-4 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>Ventas por Tienda</h3><div class="chart-container-sm"><canvas id="chartStore"></canvas></div></div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+<div class="card p-4 lg:col-span-2"><h3 class="font-bold text-slate-900 mb-3 flex items-center"><svg class="w-4 h-4 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>Top 10 Aplicaciones</h3><div class="chart-container"><canvas id="chartTopProducts"></canvas></div></div>
+<div class="card p-4"><h3 class="font-bold text-slate-900 mb-3 flex items-center"><svg class="w-4 h-4 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>Por Tipo</h3><div class="chart-container-sm"><canvas id="chartType"></canvas></div><div class="flex flex-wrap gap-2 mt-3 justify-center" id="legendType"></div></div>
+</div>
+
+<div class="card p-4">
+<div class="flex items-center justify-between mb-3">
+<h3 class="font-bold text-slate-900 flex items-center"><svg class="w-4 h-4 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>Detalle de Ventas</h3>
+<span class="text-xs text-slate-500" id="tableCount">0 registros</span>
+</div>
+<div class="table-container">
+<table class="w-full text-xs">
+<thead class="bg-slate-100 sticky top-0">
+<tr>
+<th class="text-left p-2 font-semibold text-slate-600">Fecha</th>
+<th class="text-left p-2 font-semibold text-slate-600">Nota</th>
+<th class="text-left p-2 font-semibold text-slate-600">Tienda</th>
+<th class="text-left p-2 font-semibold text-slate-600">Artículo</th>
+<th class="text-left p-2 font-semibold text-slate-600">Aplicación</th>
+<th class="text-left p-2 font-semibold text-slate-600">Proveedor</th>
+<th class="text-right p-2 font-semibold text-slate-600">Cant.</th>
+<th class="text-right p-2 font-semibold text-slate-600">Precio</th>
+<th class="text-right p-2 font-semibold text-slate-600">Total</th>
+<th class="text-right p-2 font-semibold text-slate-600">Margen</th>
+</tr>
+</thead>
+<tbody id="tableBody" class="divide-y divide-slate-100"></tbody>
+</table>
+</div>
+</div>
+
+<details class="bg-slate-100 rounded-lg p-3 text-xs">
+<summary class="font-bold cursor-pointer flex items-center"><svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>Depuración</summary>
+<div id="debugInfo" class="mt-2 space-y-1"></div>
+</details>
+
+</main>
+
+<script>
+var CONFIG={
+    SHEET_URL:'https://docs.google.com/spreadsheets/d/e/2PACX-1vTF6ZUZl9tVu2_Sv7DgbgBgyXS-eSp_POKudmG7n6VkOk5MvsfPNnEzCEJNuZh7sF1F_bsC661sOf42/pub?gid=0&single=true&output=csv',
+    cols:{nota:'NOTA',prov:'PROVEEDOR',cod:'CODIGO',art:'ARTICULO',apl:'APLICACION',cant:'CANTIDAD',precio:'PRECIO',cfg:'CONFIGURACION',fecha:'FECHA',tienda:'TIENDA',total:'TOTAL',costo:'COSTO',costoTot:'COSTO TOTAL',tipo:'TIPO',sis:'SISTEMA'},
+    months:['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'],
+    categoriasEspeciales: {
+        vehiculo: ['Vehículo', 'Vehiculo', 'AUTOMÓVIL', 'Automóvil', 'Auto', 'Carro', 'Sedán', 'Hatchback', 'Coupe', 'Compacto', 'Familiar'],
+        camioneta: ['Camioneta', 'Pickup', 'Pick Up', 'SUV', '4x4', 'Todoterreno', 'Campero', 'Jeep', 'Truck', 'Van', 'Minivan'],
+        moto: ['Moto', 'Motocicleta', 'MOTOCICLETA', 'Scooter', 'Ciclomotor', 'Cuatrimoto', 'ATV'],
+        camionLigero: ['Camión Ligero', 'Camion Ligero', 'Camión 3/4', 'Camión pequeño', 'Light Truck', 'Camión liviano', 'Furgón', 'Vehículo comercial ligero'],
+        camionPesado: ['Camión Pesado', 'Camion Pesado', 'Camión 1.5', 'Camión 3 ejes', 'Camión 2 ejes', 'Tracto camión', 'Trailer', 'Remolque', 'Camión articulado', 'Bus', 'Autobús', 'Colectivo', 'Camión volteo', 'Camión cisterna'],
+        otro: ['Otro', 'OTRO', 'Otros', 'Varios', 'Especial', 'Otros Tipos', 'Otro tipo']
+    }
+};
+
+function mapearTipo(tipoOriginal) {
+    if (!tipoOriginal || tipoOriginal === '') return 'Sin clasificar';
+    var tipoStr = tipoOriginal.toString().trim();
+    for (var cat in CONFIG.categoriasEspeciales) {
+        var keywords = CONFIG.categoriasEspeciales[cat];
+        for (var i = 0; i < keywords.length; i++) {
+            if (tipoStr === keywords[i] || tipoStr.toLowerCase() === keywords[i].toLowerCase()) {
+                switch(cat) {
+                    case 'vehiculo': return 'Vehículo';
+                    case 'camioneta': return 'Camioneta';
+                    case 'moto': return 'Moto';
+                    case 'camionLigero': return 'Camión Ligero';
+                    case 'camionPesado': return 'Camión Pesado';
+                    case 'otro': return 'Otro';
+                    default: return cat.charAt(0).toUpperCase() + cat.slice(1);
+                }
+            }
+        }
+    }
+    return 'Otro';
+}
+
+var rawData=[],filteredData=[],selectedStores=[];
+var cMonthly=null,cStore=null,cTop=null,cType=null;
+var fmt={format:function(v){return new Intl.NumberFormat('es-VE',{style:'currency',currency:'USD',minimumFractionDigits:0}).format(v).replace('USD','$');}};
+var fmtDec=new Intl.NumberFormat('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+function parseCSV(t){
+    var ln=t.trim().split(/\r?\n/).filter(function(l){return l.trim();});
+    if(ln.length<2)return[];
+    var hd=ln[0].split(',').map(function(h){return h.trim().replace(/^"|"$/g,'');});
+    return ln.slice(1).map(function(line){
+        var vl=[],cur='',q=false;
+        for(var i=0;i<line.length;i++){
+            var c=line[i];
+            if(c==='"'){
+                if(q && line[i+1]==='"'){cur+='"';i++;}
+                else q=!q;
+            }else if(c===',' && !q){
+                vl.push(cur.trim().replace(/^"|"$/g,''));
+                cur='';
+            }else cur+=c;
+        }
+        vl.push(cur.trim().replace(/^"|"$/g,''));
+        var obj={};
+        hd.forEach(function(h,idx){
+            var v=vl[idx]||'';
+            if(v!=='' && !isNaN(v)) v=parseFloat(v);
+            obj[h]=v;
+        });
+        return obj;
+    });
+}
+
+function parseDate(ds){
+    if(!ds)return null;
+    var p=ds.toString().split('/');
+    if(p.length===3) return new Date(p[2],p[1]-1,p[0]);
+    return new Date(ds);
+}
+function fmtDate(d){
+    if(!d)return'-';
+    return new Date(d).toLocaleDateString('es-VE');
+}
+function getMonthLbl(d){
+    var dt=new Date(d);
+    return CONFIG.months[dt.getMonth()]+' '+dt.getFullYear();
+}
+
+function applyFilters(){
+    var storeCheckboxes = document.querySelectorAll('#storeFilterGroup input[type="checkbox"]');
+    selectedStores = [];
+    storeCheckboxes.forEach(function(cb){
+        if(cb.checked && cb.value !== 'ALL') selectedStores.push(cb.value);
+    });
+    
+    var pr=document.getElementById('filterProvider').value;
+    var tp=document.getElementById('filterType').value;
+    var ap=document.getElementById('filterApp').value;
+    var ds=document.getElementById('dateStart').value;
+    var de=document.getElementById('dateEnd').value;
+    
+    filteredData=rawData.filter(function(r){
+        if(selectedStores.length > 0 && selectedStores.indexOf(r[CONFIG.cols.tienda]) === -1) return false;
+        if(pr!=='ALL' && r[CONFIG.cols.prov]!==pr) return false;
+        var tipoMapeado = mapearTipo(r[CONFIG.cols.tipo]);
+        if(tp!=='ALL' && tipoMapeado !== tp) return false;
+        if(ap!=='ALL' && r[CONFIG.cols.apl]!==ap) return false;
+        if(ds||de){
+            var rd=parseDate(r[CONFIG.cols.fecha]);
+            if(ds && rd<new Date(ds)) return false;
+            if(de && rd>new Date(de)) return false;
+        }
+        return true;
+    });
+    updateDashboard();
+}
+
+function updateDashboard(){
+    updateKPIs();
+    updateCharts();
+    updateTable();
+    updateDebug();
+}
+
+function updateKPIs(){
+    var ts=filteredData.reduce(function(s,r){return s+(parseFloat(r[CONFIG.cols.total])||0);},0);
+    var tc=filteredData.reduce(function(s,r){return s+(parseFloat(r[CONFIG.cols.costoTot])||0);},0);
+    var mg=ts-tc;
+    var mp=ts>0?(mg/ts)*100:0;
+    var un=new Set(filteredData.map(function(r){return r[CONFIG.cols.nota];})).size;
+    var at=un>0?ts/un:0;
+    var tu=filteredData.reduce(function(s,r){return s+(parseInt(r[CONFIG.cols.cant])||0);},0);
+    var up=new Set(filteredData.map(function(r){return r[CONFIG.cols.prov];})).size;
+    
+    document.getElementById('kpiTotalSales').textContent=fmt.format(ts);
+    document.getElementById('kpiSalesCount').textContent=un+' notas';
+    document.getElementById('kpiTotalCost').textContent=fmt.format(tc);
+    document.getElementById('kpiMargin').textContent=fmt.format(mg);
+    document.getElementById('kpiMarginPct').textContent=mp.toFixed(1)+'%';
+    document.getElementById('kpiAvgTicket').textContent=fmt.format(at);
+    document.getElementById('kpiUnits').textContent=tu.toLocaleString('es-VE');
+    document.getElementById('kpiProviders').textContent=up;
+    
+    var me=document.getElementById('kpiMargin');
+    var pe=document.getElementById('kpiMarginPct');
+    if(mg>=0){me.className='kpi-value text-emerald-500';pe.className='text-xs text-emerald-600 mt-1';}
+    else{me.className='kpi-value text-red-500';pe.className='text-xs text-red-600 mt-1';}
+}
+
+function updateCharts(){updMonthly();updStore();updTop();updType();}
+
+function updMonthly(){
+    var cv=document.getElementById('chartMonthly');if(!cv)return; cv=cv.getContext('2d');
+    if(cMonthly)cMonthly.destroy();
+    var mo={};
+    filteredData.forEach(function(r){
+        var dt=parseDate(r[CONFIG.cols.fecha]);if(!dt)return;
+        var ky=getMonthLbl(dt);
+        if(!mo[ky]) mo[ky]={v:0,c:0};
+        mo[ky].v+=parseFloat(r[CONFIG.cols.total])||0;
+        mo[ky].c+=parseFloat(r[CONFIG.cols.costoTot])||0;
+    });
+    var sk=Object.keys(mo).sort(function(a,b){
+        var ma=a.split(' ')[0], ya=a.split(' ')[1];
+        var mb=b.split(' ')[0], yb=b.split(' ')[1];
+        var ia=CONFIG.months.indexOf(ma), ib=CONFIG.months.indexOf(mb);
+        return (parseInt(ya)-parseInt(yb))||(ia-ib);
+    });
+    var lb=sk;
+    var dv=sk.map(function(k){return mo[k].v;});
+    var dc=sk.map(function(k){return mo[k].c;});
+    var cd={labels:lb,datasets:[
+        {label:'Ventas',data:dv,backgroundColor:'#D32F2F',borderRadius:4},
+        {label:'Costo',data:dc,backgroundColor:'#94a3b8',borderRadius:4}
+    ]};
+    try{
+        cMonthly=new Chart(cv,{type:'bar',data:cd,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{usePointStyle:true}},tooltip:{callbacks:{label:function(ctx){return ctx.dataset.label+': '+fmt.format(ctx.parsed.y);}}}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'$'+(v/1000).toFixed(0)+'k';}}}}}});
+    }catch(e){console.error('Chart error:',e);}
+}
+
+function updStore(){
+    var cv=document.getElementById('chartStore');if(!cv)return; cv=cv.getContext('2d');
+    if(cStore)cStore.destroy();
+    var sd={};
+    filteredData.forEach(function(r){
+        var st=r[CONFIG.cols.tienda]||'Sin tienda';
+        if(!sd[st]) sd[st]=0;
+        sd[st]+=parseFloat(r[CONFIG.cols.total])||0;
+    });
+    var sr=Object.entries(sd).sort(function(a,b){return b[1]-a[1];}).slice(0,5);
+    var lb=sr.map(function(x){return x[0];});
+    var vl=sr.map(function(x){return x[1];});
+    var cd={labels:lb,datasets:[{data:vl,backgroundColor:['#D32F2F','#1e40af','#10b981','#f59e0b','#6366f1'],borderRadius:4}]};
+    try{
+        cStore=new Chart(cv,{type:'bar',data:cd,options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{callback:function(v){return'$'+(v/1000).toFixed(0)+'k';}}}}}});
+    }catch(e){console.error('Chart error:',e);}
+}
+
+function updTop(){
+    var cv=document.getElementById('chartTopProducts');if(!cv)return; cv=cv.getContext('2d');
+    if(cTop)cTop.destroy();
+    var pd={};
+    filteredData.forEach(function(r){
+        var ar=r[CONFIG.cols.apl]||'Sin aplicación';
+        if(!pd[ar]) pd[ar]={v:0,u:0};
+        pd[ar].v+=parseFloat(r[CONFIG.cols.total])||0;
+        pd[ar].u+=parseInt(r[CONFIG.cols.cant])||0;
+    });
+    var tp=Object.entries(pd).sort(function(a,b){return b[1].v-a[1].v;}).slice(0,10);
+    var lb=tp.map(function(x){var n=x[0];return n.length>30?n.substring(0,27)+'...':n;});
+    var vl=tp.map(function(x){return x[1].v;});
+    var cd={labels:lb,datasets:[{label:'Ventas',data:vl,backgroundColor:'#D32F2F',borderRadius:3}]};
+    try{
+        cTop=new Chart(cv,{type:'bar',data:cd,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return fmt.format(ctx.parsed.y)+' ('+tp[ctx.dataIndex][1].u+' und.)';}}}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'$'+(v/1000).toFixed(0)+'k';}}},x:{ticks:{autoSkip:false,maxRotation:45,minRotation:45}}}}});
+    }catch(e){console.error('Chart error:',e);}
+}
+
+function updType(){
+    var cv=document.getElementById('chartType');if(!cv)return; cv=cv.getContext('2d');
+    if(cType)cType.destroy();
+    var td={};
+    filteredData.forEach(function(r){
+        var tp = mapearTipo(r[CONFIG.cols.tipo]);
+        if(!td[tp]) td[tp]=0;
+        td[tp]+=parseFloat(r[CONFIG.cols.total])||0;
+    });
+    var sr=Object.entries(td).sort(function(a,b){return b[1]-a[1];});
+    var cl=['#D32F2F','#1e40af','#10b981','#f59e0b','#6366f1','#8b5cf6','#ec4899','#14b8a6','#f97316'];
+    var lb=sr.map(function(x){return x[0];});
+    var vl=sr.map(function(x){return x[1];});
+    var cd={labels:lb,datasets:[{data:vl,backgroundColor:sr.map(function(_,i){return cl[i%cl.length];}),borderWidth:0,spacing:2,cutout:'60%'}]};
+    try{
+        cType=new Chart(cv,{type:'doughnut',data:cd,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){var tot=ctx.dataset.data.reduce(function(a,b){return a+b;},0);var pct=tot>0?((ctx.parsed/tot)*100).toFixed(1):0;return ctx.label+': '+fmt.format(ctx.parsed)+' ('+pct+'%)';}}}}}});
+    }catch(e){console.error('Chart error:',e);}
+    var lg=document.getElementById('legendType');
+    lg.innerHTML=sr.slice(0,6).map(function(x,i){return'<span class="flex items-center text-xs"><span class="w-2.5 h-2.5 rounded-full mr-1.5" style="background:'+cl[i%cl.length]+'"></span>'+x[0]+'</span>';}).join('');
+}
+
+function updateTable(){
+    var tb=document.getElementById('tableBody');
+    var sortedData=filteredData.slice().sort(function(a,b){return (parseFloat(b[CONFIG.cols.total])||0)-(parseFloat(a[CONFIG.cols.total])||0);});
+    var dd=sortedData.slice(0,100);
+    tb.innerHTML=dd.map(function(r){
+        var tt=parseFloat(r[CONFIG.cols.total])||0;
+        var cs=parseFloat(r[CONFIG.cols.costoTot])||0;
+        var mg=tt-cs;
+        var mp=tt>0?(mg/tt)*100:0;
+        var tipoCategorizado = mapearTipo(r[CONFIG.cols.tipo]);
+        return '<tr class="hover:bg-slate-50">'+
+            '<td class="p-2">'+fmtDate(parseDate(r[CONFIG.cols.fecha]))+'</td>'+
+            '<td class="p-2 font-mono text-xs">'+(r[CONFIG.cols.nota]||'-')+'</td>'+
+            '<td class="p-2">'+(r[CONFIG.cols.tienda]||'-')+'</td>'+
+            '<td class="p-2 max-w-xs truncate" title="'+(r[CONFIG.cols.art]||'')+'">'+(r[CONFIG.cols.art]||'-')+'</td>'+
+            '<td class="p-2 max-w-xs truncate" title="'+(r[CONFIG.cols.apl]||'')+'">'+(r[CONFIG.cols.apl]||'-')+'</td>'+
+            '<td class="p-2">'+(r[CONFIG.cols.prov]||'-')+'</td>'+
+            '<td class="p-2 text-right">'+(parseInt(r[CONFIG.cols.cant])||0)+'</td>'+
+            '<td class="p-2 text-right">'+fmtDec.format(r[CONFIG.cols.precio]||0)+'</td>'+
+            '<td class="p-2 text-right font-semibold">'+fmt.format(tt)+'</td>'+
+            '<td class="p-2 text-right '+(mg>=0?'text-emerald-600':'text-red-600')+'">'+fmt.format(mg)+'<br><span class="text-[10px]">'+mp.toFixed(0)+'%</span></td>'+
+        '</tr>';
+    }).join('');
+    document.getElementById('tableCount').textContent=filteredData.length+' registros';
+}
+
+function updateDebug(){
+    var db=document.getElementById('debugInfo');
+    var st=[...new Set(rawData.map(function(r){return r[CONFIG.cols.tienda];}))].filter(Boolean);
+    var pr=[...new Set(rawData.map(function(r){return r[CONFIG.cols.prov];}))].filter(Boolean);
+    var tiposOriginales = [...new Set(rawData.map(function(r){return r[CONFIG.cols.tipo];}))].filter(Boolean);
+    var tiposMapeados = [...new Set(rawData.map(function(r){return mapearTipo(r[CONFIG.cols.tipo]);}))];
+    var ap=[...new Set(rawData.map(function(r){return r[CONFIG.cols.apl];}))].filter(Boolean);
+    
+    db.innerHTML='<p><strong>Registros:</strong> '+rawData.length+'</p>'+
+                 '<p><strong>Filtrados:</strong> '+filteredData.length+'</p>'+
+                 '<p><strong>Tiendas:</strong> '+(st.join(', ')||'N/A')+'</p>'+
+                 '<p><strong>Tiendas seleccionadas:</strong> '+(selectedStores.length?selectedStores.join(', '):'Todas')+'</p>'+
+                 '<p><strong>Proveedores:</strong> '+pr.length+' únicos</p>'+
+                 '<p><strong>Tipos Originales:</strong> '+(tiposOriginales.join(', ')||'N/A')+'</p>'+
+                 '<p><strong>Tipos Categorizados:</strong> '+(tiposMapeados.join(', ')||'N/A')+'</p>'+
+                 '<p><strong>Aplicaciones:</strong> '+ap.length+' únicas</p>';
+    
+    updateStoreFilterCheckboxes(st);
+    fillSel('filterProvider',['ALL'].concat(pr));
+    fillSel('filterApp',['ALL'].concat(ap));
+    fillSelTipo('filterType', tiposMapeados);
+}
+
+function updateStoreFilterCheckboxes(stores){
+    var container = document.getElementById('storeFilterGroup');
+    if(!container) return;
+    
+    var currentSelected = selectedStores;
+    
+    container.innerHTML = '';
+    
+    stores.forEach(function(store){
+        var label = document.createElement('label');
+        label.className = 'store-checkbox';
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = store;
+        cb.checked = (currentSelected.indexOf(store) !== -1);
+        cb.addEventListener('change', function(){
+            applyFilters();
+        });
+        var span = document.createElement('span');
+        span.textContent = store;
+        label.appendChild(cb);
+        label.appendChild(span);
+        container.appendChild(label);
+    });
+}
+
+function fillSel(id,opts){
+    var sl=document.getElementById(id);
+    var cv=sl.value;
+    sl.innerHTML=opts.map(function(o){return '<option value="'+(o==='ALL'?'ALL':o)+'">'+(o==='ALL'?'Todos':o)+'</option>';}).join('');
+    if(opts.indexOf(cv)!==-1) sl.value=cv;
+}
+
+function fillSelTipo(id, tiposMapeados){
+    var sl=document.getElementById(id);
+    var cv=sl.value;
+    var opcionesPredefinidas = ['ALL', 'Vehículo', 'Camioneta', 'Moto', 'Camión Ligero', 'Camión Pesado', 'Otro'];
+    tiposMapeados.forEach(function(tipo){
+        if(opcionesPredefinidas.indexOf(tipo) === -1 && tipo !== 'Sin clasificar'){
+            opcionesPredefinidas.push(tipo);
+        }
+    });
+    if(tiposMapeados.indexOf('Sin clasificar') !== -1 && opcionesPredefinidas.indexOf('Sin clasificar') === -1){
+        opcionesPredefinidas.push('Sin clasificar');
+    }
+    
+    sl.innerHTML=opcionesPredefinidas.map(function(o){
+        var label = o === 'ALL' ? 'Todos los Tipos' : o;
+        return '<option value="'+o+'">'+label+'</option>';
+    }).join('');
+    if(opcionesPredefinidas.indexOf(cv)!==-1) sl.value=cv;
+}
+
+async function loadData(){
+    try{
+        document.getElementById('dataStatus').textContent='Cargando...';
+        var rs=await fetch(CONFIG.SHEET_URL);
+        if(!rs.ok) throw new Error('HTTP '+rs.status);
+        var ct=await rs.text();
+        rawData=parseCSV(ct);
+        filteredData=rawData.slice();
+        document.getElementById('dataStatus').innerHTML='<span class="status-dot status-active"></span>Actualizado';
+        document.getElementById('dataStatus').className='text-xs font-semibold text-emerald-600';
+        updateDashboard();
+    }catch(er){
+        console.error('Error:',er);
+        document.getElementById('dataStatus').textContent='Error';
+        document.getElementById('dataStatus').className='text-xs font-semibold text-red-600';
+        document.getElementById('debugInfo').innerHTML='<p class="text-red-600">❌ '+er.message+'</p>';
+    }
+}
+
+function setupListeners(){
+    document.getElementById('btnApplyFilter').addEventListener('click',applyFilters);
+    document.getElementById('btnClearFilter').addEventListener('click',function(){
+        document.querySelectorAll('#storeFilterGroup input[type="checkbox"]').forEach(function(cb){
+            cb.checked = false;
+        });
+        document.getElementById('filterProvider').value='ALL';
+        document.getElementById('filterType').value='ALL';
+        document.getElementById('filterApp').value='ALL';
+        document.getElementById('dateStart').value='';
+        document.getElementById('dateEnd').value='';
+        selectedStores = [];
+        filteredData=rawData.slice();
+        updateDashboard();
+    });
+}
+
+function init(){setupListeners();loadData();}
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}else{init();}
+</script>
