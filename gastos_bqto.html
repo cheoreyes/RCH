@@ -1,0 +1,718 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>Gestión de Gastos · Anual + Mensual (Año Corriente)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>tailwind.config={theme:{extend:{colors:{primary:'#D32F2F',dark:'#0f172a',success:'#10b981',warning:'#f59e0b'}}}};</script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  body{font-family:'Inter',system-ui,sans-serif; background:#f1f5f9}
+  .matrix-container{overflow-x:auto; border-radius:1.25rem; box-shadow:0 4px 12px rgba(0,0,0,0.03);}
+  .matrix-table{min-width:100%; border-collapse:collapse; font-size:0.8rem; background:white;}
+  .matrix-table th{background:#f8fafc; padding:12px 10px; font-weight:700; color:#1e293b; border-bottom:2px solid #e2e8f0; text-align:center; white-space:nowrap;}
+  .matrix-table td{padding:10px 8px; border-bottom:1px solid #eef2ff; text-align:right;}
+  .matrix-table .label-cell{text-align:left; font-weight:600; background-color:#ffffff; position:sticky; left:0; background:#fff; z-index:2; box-shadow:2px 0 5px -2px rgba(0,0,0,0.05);}
+  .level-1{background:#fef9e3; font-weight:800; cursor:pointer;}
+  .level-2{background:#ffffff; font-weight:600; cursor:pointer;}
+  .level-3{background:#fafcff;}
+  .level-1:hover, .level-2:hover{background:#fff1f0;}
+  .collapse-icon{display:inline-block; width:20px; font-size:14px; font-weight:900; margin-right:6px; color:#D32F2F;}
+  .grand-total-row{background:#eef2ff; font-weight:800; border-top:3px solid #D32F2F;}
+  
+  .date-filter-container {
+    background: #f8fafc;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+  }
+  .date-filter-container label {
+    font-weight: 600;
+    color: #1e293b;
+    font-size: 0.85rem;
+  }
+  .date-filter-container input[type="date"] {
+    padding: 6px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    background: white;
+    color: #1e293b;
+  }
+  .date-filter-container input[type="date"]:focus {
+    outline: 2px solid #D32F2F;
+    outline-offset: 1px;
+  }
+</style>
+
+
+
+<header class="bg-white border-b-4 border-primary shadow-sm px-6 py-4 flex flex-col md:flex-row md:items-center justify-between sticky top-0 z-50">
+  <div class="flex items-center">
+    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 100 100" fill="none" class="mr-3">
+      <path d="M15 45 L50 35 L85 45 L75 50 L50 42 L25 50 Z" fill="#D32F2F"></path>
+      <rect x="25" y="55" width="50" height="8" fill="#D32F2F"></rect>
+      <rect x="20" y="70" width="60" height="8" fill="#D32F2F"></rect>
+      <rect x="15" y="85" width="70" height="8" fill="#D32F2F"></rect>
+      <rect x="42" y="50" width="16" height="40" fill="#D32F2F"></rect>
+    </svg>
+    <div>
+      <h1 class="text-2xl font-black tracking-tight text-slate-900">Gestión de <span class="text-primary">Gastos</span></h1>
+      <p class="text-sm font-medium text-slate-500 uppercase tracking-widest mt-1">Matriz jerárquica · Totales anuales + Desglose mensual año corriente</p>
+    </div>
+  </div>
+  <div class="flex items-center space-x-2 bg-slate-100 px-4 py-2 rounded-full font-semibold text-sm mt-4 md:mt-0">
+    <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+    <span id="dataStatus">Cargando datos...</span>
+  </div>
+</header>
+
+<main class="max-w-[98vw] mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-8">
+  
+  <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap gap-4 items-center justify-between">
+    <div class="flex flex-wrap gap-3 items-center">
+      <select id="filterCuenta" class="px-3 py-2 border rounded-xl text-sm bg-white"><option value="ALL">Todas las cuentas</option></select>
+      <select id="filterTipo" class="px-3 py-2 border rounded-xl text-sm"><option value="ALL">Todos los tipos</option></select>
+      <select id="filterCategoria" class="px-3 py-2 border rounded-xl text-sm"><option value="ALL">Todas las categorías</option></select>
+      <button id="btnResetFiltros" class="px-4 py-2 bg-slate-200 text-slate-800 rounded-xl font-bold text-sm hover:bg-slate-300">Limpiar filtros</button>
+    </div>
+    <div class="text-xs text-primary bg-primary/10 px-3 py-1.5 rounded-full" id="filterSummary">📊 Vista completa</div>
+  </div>
+
+  <div class="date-filter-container">
+    <label for="fechaInicio">📅 Desde:</label>
+    <input type="date" id="fechaInicio">
+    <label for="fechaFin">Hasta:</label>
+    <input type="date" id="fechaFin">
+    <button id="btnAplicarFechas" class="px-4 py-1.5 bg-primary text-white rounded-lg font-bold text-sm hover:bg-red-700 transition-colors">Aplicar filtro</button>
+    <button id="btnLimpiarFechas" class="px-4 py-1.5 bg-slate-200 text-slate-700 rounded-lg font-bold text-sm hover:bg-slate-300 transition-colors">Limpiar fechas</button>
+    <span id="fechaInfo" class="text-xs text-slate-500 ml-2"></span>
+  </div>
+
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="bg-white rounded-xl shadow-sm border-l-8 border-primary p-4"><h3 class="text-primary font-bold text-xs uppercase">Total USD</h3><span class="text-2xl font-black text-slate-800" id="totalUSD">$0.00</span><p class="text-xs text-slate-500">Gastos acumulados</p></div>
+    <div class="bg-white rounded-xl shadow-sm border-l-8 border-slate-700 p-4"><h3 class="text-slate-700 font-bold text-xs uppercase">Transacciones</h3><span class="text-2xl font-black text-slate-800" id="totalRecords">0</span><p class="text-xs text-slate-500">Movimientos</p></div>
+    <div class="bg-white rounded-xl shadow-sm border-l-8 border-amber-500 p-4"><h3 class="text-amber-600 font-bold text-xs uppercase">Años cubiertos</h3><span class="text-2xl font-black text-slate-800" id="yearRange">-</span><p class="text-xs text-slate-500">Período</p></div>
+    <div class="bg-white rounded-xl shadow-sm border-l-8 border-emerald-500 p-4"><h3 class="text-emerald-600 font-bold text-xs uppercase">Gastos promedio mes</h3><span class="text-2xl font-black text-slate-800" id="avgMonthlyExpense">$0.00</span><p class="text-xs text-slate-500" id="avgMonthlyLabel">Promedio mensual USD</p></div>
+  </div>
+
+  
+  <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-4">
+    <div class="flex justify-between items-center mb-3 flex-wrap">
+      <h2 class="text-xl font-black text-slate-800">📆 Gastos en Dólares por Año</h2>
+      <div class="text-xs bg-slate-100 px-3 py-1 rounded-full">🔽 Click en ▶ para expandir/colapsar categorías</div>
+    </div>
+    <div class="matrix-container">
+      <table class="matrix-table" id="pivotYearTable">
+        <thead id="matrixHeader"></thead>
+        <tbody id="matrixBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  
+  <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-4 mt-6">
+    <div class="flex justify-between items-center mb-3 flex-wrap">
+      <h2 class="text-xl font-black text-primary">📅 Desglose Mensual · Año <span id="currentYearLabel">2026</span></h2>
+      <div class="text-xs bg-amber-100 text-amber-700 px-3 py-1 rounded-full">📌 Misma jerarquía · Totales por mes</div>
+    </div>
+    <div class="matrix-container">
+      <table class="matrix-table" id="pivotMonthTable">
+        <thead id="monthHeader"></thead>
+        <tbody id="monthBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <details class="bg-slate-100 rounded-lg p-4 text-xs">
+    <summary class="font-bold cursor-pointer text-slate-700">📄 Información de datos</summary>
+    <div id="debugInfo" class="mt-2 text-slate-600"></div>
+  </details>
+  <div id="connectionStatus" class="text-center text-sm text-slate-500 py-2"></div>
+</main>
+
+<script>
+// ================= CONFIGURACIÓN =================
+const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRZisBTvP3GT1b-cTu4y5UmNfl2bkAGKBJyrfB2J5BZYZ9Mx0LtEELV-zsbWWGkCfl2YPb2yXu3xEFl/pub?gid=920179127&single=true&output=csv';
+
+let rawData = [];
+let currentFilters = { cuenta: 'ALL', tipo: 'ALL', categoria: 'ALL' };
+let dateFilter = { fechaInicio: null, fechaFin: null };
+let expandedNodes = new Set();
+let expandedNodesMonth = new Set();
+
+function round2(num) { return Math.round((num + Number.EPSILON) * 100) / 100; }
+const usdFormat = new Intl.NumberFormat('es-VE', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+
+function parseLocaleNumber(str) {
+  if (str === undefined || str === null || str === '') return 0;
+  let s = String(str).trim();
+  s = s.replace(/[$€£¥\s]/g, '');
+  if (s === '') return 0;
+  
+  const lastDot = s.lastIndexOf('.');
+  const lastComma = s.lastIndexOf(',');
+  
+  if (lastComma > -1 && (lastDot === -1 || lastComma > lastDot)) {
+    let clean = s.replace(/\./g, '');
+    clean = clean.replace(',', '.');
+    let num = parseFloat(clean);
+    return isNaN(num) ? 0 : round2(num);
+  }
+  
+  if (lastDot > -1 && lastComma > -1 && lastDot > lastComma) {
+    let clean = s.replace(/,/g, '');
+    let num = parseFloat(clean);
+    return isNaN(num) ? 0 : round2(num);
+  }
+  
+  let clean = s.replace(/,/g, '');
+  let num = parseFloat(clean);
+  return isNaN(num) ? 0 : round2(num);
+}
+
+function parseDateFromString(dateStr) {
+  if (!dateStr) return null;
+  // Intentar parsear formato DD/MM/YYYY
+  let parts = dateStr.split('/');
+  if (parts.length === 3) {
+    let day = parseInt(parts[0]);
+    let month = parseInt(parts[1]) - 1; // Mes en JS es 0-based
+    let year = parseInt(parts[2]);
+    if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+      return new Date(year, month, day);
+    }
+  }
+  return null;
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+  
+  const rawHeaders = [];
+  let inQuote = false;
+  let current = '';
+  for (let ch of lines[0]) {
+    if (ch === '"') {
+      inQuote = !inQuote;
+    } else if (ch === ',' && !inQuote) {
+      rawHeaders.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  rawHeaders.push(current.trim());
+  const headers = rawHeaders.map(h => h.replace(/^"|"$/g, '').toUpperCase());
+  
+  const result = [];
+  for (let i = 1; i < lines.length; i++) {
+    let values = [];
+    inQuote = false;
+    current = '';
+    for (let ch of lines[i]) {
+      if (ch === '"') {
+        inQuote = !inQuote;
+      } else if (ch === ',' && !inQuote) {
+        values.push(current);
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+    values.push(current);
+    values = values.map(v => v.trim().replace(/^"|"$/g, ''));
+    
+    const row = {};
+    headers.forEach((h, idx) => {
+      row[h] = values[idx] || '';
+    });
+    
+    row['DOLARES'] = parseLocaleNumber(row['DOLARES']);
+    row['TASA'] = parseLocaleNumber(row['TASA']);
+    row['BOLIVARES'] = parseLocaleNumber(row['BOLIVARES']);
+    
+    if (row['FECHA']) {
+      let dateObj = parseDateFromString(row['FECHA']);
+      if (dateObj && !isNaN(dateObj.getTime())) {
+        row._year = dateObj.getFullYear();
+        row._month = dateObj.getMonth() + 1; // 1-12
+        row._monthName = dateObj.toLocaleString('es', { month: 'short' });
+        row._dateObj = dateObj;
+        // Guardar como string YYYY-MM-DD para comparación fácil
+        row._dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+      }
+    }
+    result.push(row);
+  }
+  
+  return result.filter(r => r._year && !isNaN(r._year));
+}
+
+function applyFilters() {
+  if (!rawData.length) return [];
+  return rawData.filter(row => {
+    // Filtros de dropdown
+    if (currentFilters.cuenta !== 'ALL' && row['CUENTA'] !== currentFilters.cuenta) return false;
+    if (currentFilters.tipo !== 'ALL' && row['TIPO'] !== currentFilters.tipo) return false;
+    if (currentFilters.categoria !== 'ALL' && row['CATEGORIA'] !== currentFilters.categoria) return false;
+    
+    // Filtro de fechas - comparación directa de strings YYYY-MM-DD para evitar problemas de zona horaria
+    if (dateFilter.fechaInicio && row._dateStr) {
+      if (row._dateStr < dateFilter.fechaInicio) return false;
+    }
+    if (dateFilter.fechaFin && row._dateStr) {
+      if (row._dateStr > dateFilter.fechaFin) return false;
+    }
+    
+    return true;
+  });
+}
+
+function buildYearlyHierarchy(data) {
+  const hierarchy = new Map();
+  data.forEach(row => {
+    const tipo = row['TIPO'] || 'SIN CLASIFICAR';
+    const categoria = row['CATEGORIA'] || 'SIN CATEGORÍA';
+    const cuenta = row['CUENTA'] || 'SIN CUENTA';
+    const year = row._year;
+    const usd = row['DOLARES'];
+    if (!year || usd === 0) return;
+    if (!hierarchy.has(tipo)) hierarchy.set(tipo, new Map());
+    const catMap = hierarchy.get(tipo);
+    if (!catMap.has(categoria)) catMap.set(categoria, new Map());
+    const cuentaMap = catMap.get(categoria);
+    if (!cuentaMap.has(cuenta)) cuentaMap.set(cuenta, new Map());
+    const yearMap = cuentaMap.get(cuenta);
+    yearMap.set(year, (yearMap.get(year) || 0) + usd);
+  });
+  return hierarchy;
+}
+
+function buildMonthlyHierarchy(data, targetYear) {
+  const hierarchy = new Map();
+  const filteredByYear = data.filter(r => r._year === targetYear);
+  filteredByYear.forEach(row => {
+    const tipo = row['TIPO'] || 'SIN CLASIFICAR';
+    const categoria = row['CATEGORIA'] || 'SIN CATEGORÍA';
+    const cuenta = row['CUENTA'] || 'SIN CUENTA';
+    const month = row._month;
+    const usd = row['DOLARES'];
+    if (!month || usd === 0) return;
+    if (!hierarchy.has(tipo)) hierarchy.set(tipo, new Map());
+    const catMap = hierarchy.get(tipo);
+    if (!catMap.has(categoria)) catMap.set(categoria, new Map());
+    const cuentaMap = catMap.get(categoria);
+    if (!cuentaMap.has(cuenta)) cuentaMap.set(cuenta, new Map());
+    const monthMap = cuentaMap.get(cuenta);
+    monthMap.set(month, (monthMap.get(month) || 0) + usd);
+  });
+  return hierarchy;
+}
+
+function getAvailableYears(data) {
+  const years = new Set();
+  data.forEach(r => { if (r._year) years.add(r._year); });
+  return Array.from(years).sort((a,b)=>a-b);
+}
+
+function getMonthsWithData(data) {
+  const months = new Set();
+  data.forEach(r => {
+    if (r._year && r._month) {
+      months.add(`${r._year}-${String(r._month).padStart(2,'0')}`);
+    }
+  });
+  return months;
+}
+
+let currentYears = [];
+
+function renderYearTable() {
+  const filtered = applyFilters();
+  if (!filtered.length) {
+    document.getElementById('matrixBody').innerHTML = '<tr><td colspan="20" class="text-center py-12 text-slate-400">Sin datos con estos filtros</td></tr>';
+    document.getElementById('matrixHeader').innerHTML = '<tr><th>Concepto</th><th>Sin años</th></tr>';
+    return;
+  }
+  const hierarchy = buildYearlyHierarchy(filtered);
+  const years = getAvailableYears(filtered);
+  currentYears = years;
+  
+  let headerHtml = `<tr><th class="min-w-[260px] sticky left-0 bg-white z-10">Concepto (Tipo / Categoría / Cuenta)</th>`;
+  years.forEach(y => { headerHtml += `<th class="text-center">${y}</th>`; });
+  headerHtml += `<th class="text-center bg-slate-50">Total USD</th></tr>`;
+  document.getElementById('matrixHeader').innerHTML = headerHtml;
+  
+  let tbodyHtml = '';
+  let grandTotalAll = 0;
+  
+  for (let [tipo, catMap] of hierarchy.entries()) {
+    let tipoTotal = 0;
+    for (let [cat, cuentaMap] of catMap.entries()) {
+      for (let [cuenta, yearMap] of cuentaMap.entries()) {
+        let sumCuenta = 0;
+        for (let y of years) sumCuenta += yearMap.get(y) || 0;
+        tipoTotal += sumCuenta;
+      }
+    }
+    grandTotalAll += tipoTotal;
+    const tipoKey = `tipo_${tipo}`;
+    const isExpanded = expandedNodes.has(tipoKey);
+    const expandIcon = isExpanded ? '▼' : '▶';
+    
+    tbodyHtml += `<tr class="level-1" data-node-key="${escapeAttr(tipoKey)}" data-table="year">
+      <td class="label-cell font-black text-slate-800"><span class="collapse-icon">${expandIcon}</span> ${escapeHtml(tipo)}</td>`;
+    for (let y of years) {
+      let yearSum = 0;
+      for (let [cat, cuentaMap] of catMap.entries()) {
+        for (let [cuenta, yearMap] of cuentaMap.entries()) { yearSum += yearMap.get(y) || 0; }
+      }
+      tbodyHtml += `<td class="text-right font-semibold">${usdFormat.format(yearSum)}</td>`;
+    }
+    tbodyHtml += `<td class="text-right font-bold text-primary">${usdFormat.format(tipoTotal)}</td></tr>`;
+    
+    if (isExpanded) {
+      for (let [categoria, cuentaMap] of catMap.entries()) {
+        let catTotal = 0;
+        for (let [cuenta, yearMap] of cuentaMap.entries()) {
+          for (let y of years) catTotal += yearMap.get(y) || 0;
+        }
+        const catKey = `${tipoKey}|cat_${categoria}`;
+        const isCatExpanded = expandedNodes.has(catKey);
+        const expandIconCat = isCatExpanded ? '▼' : '▶';
+        
+        tbodyHtml += `<tr class="level-2" data-node-key="${escapeAttr(catKey)}" data-table="year">
+          <td class="label-cell pl-8 font-semibold text-slate-700"><span class="collapse-icon">${expandIconCat}</span> ${escapeHtml(categoria)}</td>`;
+        for (let y of years) {
+          let yearCatSum = 0;
+          for (let [cuenta, yearMap] of cuentaMap.entries()) { yearCatSum += yearMap.get(y) || 0; }
+          tbodyHtml += `<td class="text-right">${usdFormat.format(yearCatSum)}</td>`;
+        }
+        tbodyHtml += `<td class="text-right font-medium">${usdFormat.format(catTotal)}</td></tr>`;
+        
+        if (isCatExpanded) {
+          for (let [cuenta, yearMap] of cuentaMap.entries()) {
+            let cuentaTotal = 0;
+            for (let y of years) cuentaTotal += yearMap.get(y) || 0;
+            tbodyHtml += `<tr class="level-3">
+              <td class="label-cell pl-12 text-slate-600"><span class="collapse-icon">💰</span> ${escapeHtml(cuenta)}</td>`;
+            for (let y of years) {
+              const val = yearMap.get(y) || 0;
+              tbodyHtml += `<td class="text-right ${val > 0 ? 'font-medium' : 'text-slate-300'}">${val > 0 ? usdFormat.format(val) : '—'}</td>`;
+            }
+            tbodyHtml += `<td class="text-right font-bold text-primary/80">${usdFormat.format(cuentaTotal)}</td></tr>`;
+          }
+        }
+      }
+    }
+  }
+  
+  tbodyHtml += `<tr class="grand-total-row"><td class="label-cell font-black">💵 TOTAL GENERAL</td>`;
+  for (let y of years) {
+    let yearTotal = 0;
+    for (let row of filtered) if (row._year === y) yearTotal += row['DOLARES'];
+    tbodyHtml += `<td class="text-right font-black">${usdFormat.format(yearTotal)}</td>`;
+  }
+  tbodyHtml += `<td class="text-right font-black text-primary text-lg">${usdFormat.format(grandTotalAll)}</td></tr>`;
+  
+  document.getElementById('matrixBody').innerHTML = tbodyHtml;
+  
+  document.querySelectorAll('#matrixBody .level-1, #matrixBody .level-2').forEach(row => {
+    row.removeEventListener('click', handleYearToggle);
+    row.addEventListener('click', handleYearToggle);
+  });
+}
+
+function handleYearToggle(e) {
+  e.stopPropagation();
+  const row = e.currentTarget;
+  const nodeKey = row.getAttribute('data-node-key');
+  if (!nodeKey) return;
+  if (expandedNodes.has(nodeKey)) expandedNodes.delete(nodeKey);
+  else expandedNodes.add(nodeKey);
+  renderYearTable();
+}
+
+function renderMonthTable() {
+  const filtered = applyFilters();
+  const years = getAvailableYears(filtered);
+  const year = years.length > 0 ? years[years.length - 1] : 2026;
+  document.getElementById('currentYearLabel').innerHTML = year;
+  
+  const hierarchy = buildMonthlyHierarchy(filtered, year);
+  const months = Array.from({length: 12}, (_, i) => i+1);
+  const monthNames = months.map(m => new Date(year, m-1).toLocaleString('es', { month: 'short' }));
+  
+  let headerHtml = `<tr><th class="min-w-[260px] sticky left-0 bg-white z-10">Concepto (Tipo / Categoría / Cuenta)</th>`;
+  monthNames.forEach(m => { headerHtml += `<th class="text-center">${m}</th>`; });
+  headerHtml += `<th class="text-center bg-slate-50">Total ${year}</th></tr>`;
+  document.getElementById('monthHeader').innerHTML = headerHtml;
+  
+  if (hierarchy.size === 0) {
+    document.getElementById('monthBody').innerHTML = `<tr><td colspan="14" class="text-center py-12 text-slate-400">No hay datos para el año ${year} con los filtros actuales</td></tr>`;
+    return;
+  }
+  
+  let tbodyHtml = '';
+  let globalTotal = 0;
+  
+  for (let [tipo, catMap] of hierarchy.entries()) {
+    let tipoTotal = 0;
+    for (let [cat, cuentaMap] of catMap.entries()) {
+      for (let [cuenta, monthMap] of cuentaMap.entries()) {
+        let sumCuenta = 0;
+        for (let m of months) sumCuenta += monthMap.get(m) || 0;
+        tipoTotal += sumCuenta;
+      }
+    }
+    globalTotal += tipoTotal;
+    const tipoKey = `month_tipo_${tipo}`;
+    const isExpanded = expandedNodesMonth.has(tipoKey);
+    const expandIcon = isExpanded ? '▼' : '▶';
+    
+    tbodyHtml += `<tr class="level-1" data-node-key="${escapeAttr(tipoKey)}" data-table="month">
+      <td class="label-cell font-black text-slate-800"><span class="collapse-icon">${expandIcon}</span> ${escapeHtml(tipo)}</td>`;
+    for (let m of months) {
+      let monthSum = 0;
+      for (let [cat, cuentaMap] of catMap.entries()) {
+        for (let [cuenta, monthMap] of cuentaMap.entries()) { monthSum += monthMap.get(m) || 0; }
+      }
+      tbodyHtml += `<td class="text-right font-semibold">${monthSum > 0 ? usdFormat.format(monthSum) : '—'}</td>`;
+    }
+    tbodyHtml += `<td class="text-right font-bold text-primary">${usdFormat.format(tipoTotal)}</td></tr>`;
+    
+    if (isExpanded) {
+      for (let [categoria, cuentaMap] of catMap.entries()) {
+        let catTotal = 0;
+        for (let [cuenta, monthMap] of cuentaMap.entries()) {
+          for (let m of months) catTotal += monthMap.get(m) || 0;
+        }
+        const catKey = `${tipoKey}|cat_${categoria}`;
+        const isCatExpanded = expandedNodesMonth.has(catKey);
+        const expandIconCat = isCatExpanded ? '▼' : '▶';
+        
+        tbodyHtml += `<tr class="level-2" data-node-key="${escapeAttr(catKey)}" data-table="month">
+          <td class="label-cell pl-8 font-semibold text-slate-700"><span class="collapse-icon">${expandIconCat}</span> ${escapeHtml(categoria)}</td>`;
+        for (let m of months) {
+          let monthCatSum = 0;
+          for (let [cuenta, monthMap] of cuentaMap.entries()) { monthCatSum += monthMap.get(m) || 0; }
+          tbodyHtml += `<td class="text-right">${monthCatSum > 0 ? usdFormat.format(monthCatSum) : '—'}</td>`;
+        }
+        tbodyHtml += `<td class="text-right font-medium">${usdFormat.format(catTotal)}</td></tr>`;
+        
+        if (isCatExpanded) {
+          for (let [cuenta, monthMap] of cuentaMap.entries()) {
+            let cuentaTotal = 0;
+            for (let m of months) cuentaTotal += monthMap.get(m) || 0;
+            tbodyHtml += `<tr class="level-3">
+              <td class="label-cell pl-12 text-slate-600"><span class="collapse-icon">💰</span> ${escapeHtml(cuenta)}</td>`;
+            for (let m of months) {
+              const val = monthMap.get(m) || 0;
+              tbodyHtml += `<td class="text-right ${val > 0 ? 'font-medium' : 'text-slate-300'}">${val > 0 ? usdFormat.format(val) : '—'}</td>`;
+            }
+            tbodyHtml += `<td class="text-right font-bold text-primary/80">${usdFormat.format(cuentaTotal)}</td></tr>`;
+          }
+        }
+      }
+    }
+  }
+  
+  tbodyHtml += `<tr class="grand-total-row"><td class="label-cell font-black">💵 TOTAL ${year}</td>`;
+  for (let m of months) {
+    let monthTotal = 0;
+    for (let row of filtered) if (row._year === year && row._month === m) monthTotal += row['DOLARES'];
+    tbodyHtml += `<td class="text-right font-black">${monthTotal > 0 ? usdFormat.format(monthTotal) : '—'}</td>`;
+  }
+  tbodyHtml += `<td class="text-right font-black text-primary text-lg">${usdFormat.format(globalTotal)}</td></tr>`;
+  
+  document.getElementById('monthBody').innerHTML = tbodyHtml;
+  
+  document.querySelectorAll('#monthBody .level-1, #monthBody .level-2').forEach(row => {
+    row.removeEventListener('click', handleMonthToggle);
+    row.addEventListener('click', handleMonthToggle);
+  });
+}
+
+function handleMonthToggle(e) {
+  e.stopPropagation();
+  const row = e.currentTarget;
+  const nodeKey = row.getAttribute('data-node-key');
+  if (!nodeKey) return;
+  if (expandedNodesMonth.has(nodeKey)) expandedNodesMonth.delete(nodeKey);
+  else expandedNodesMonth.add(nodeKey);
+  renderMonthTable();
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
+}
+
+function escapeAttr(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function populateFilters() {
+  if (!rawData.length) return;
+  const cuentas = [...new Set(rawData.map(d => d['CUENTA']).filter(Boolean))].sort();
+  const tipos = [...new Set(rawData.map(d => d['TIPO']).filter(Boolean))].sort();
+  const categorias = [...new Set(rawData.map(d => d['CATEGORIA']).filter(Boolean))].sort();
+  const cuentaSel = document.getElementById('filterCuenta');
+  const tipoSel = document.getElementById('filterTipo');
+  const catSel = document.getElementById('filterCategoria');
+  [cuentaSel, tipoSel, catSel].forEach(sel => { sel.innerHTML = '<option value="ALL">Todos</option>'; });
+  cuentas.forEach(c => cuentaSel.add(new Option(c,c)));
+  tipos.forEach(t => tipoSel.add(new Option(t,t)));
+  categorias.forEach(c => catSel.add(new Option(c,c)));
+}
+
+function refreshDashboard() {
+  const filtered = applyFilters();
+  
+  renderYearTable();
+  renderMonthTable();
+  
+  const totalUSD = filtered.reduce((s,r)=>s+r['DOLARES'],0);
+  document.getElementById('totalUSD').innerHTML = usdFormat.format(totalUSD);
+  document.getElementById('totalRecords').innerHTML = filtered.length;
+  
+  const years = getAvailableYears(filtered);
+  if (years.length > 0) {
+    const monthsWithData = getMonthsWithData(filtered);
+    const monthCount = monthsWithData.size || 1;
+    const avgMonthly = totalUSD / monthCount;
+    document.getElementById('avgMonthlyExpense').innerHTML = usdFormat.format(avgMonthly);
+    // Actualizar el label del promedio
+    document.getElementById('avgMonthlyLabel').textContent = `Promedio sobre ${monthCount} mes${monthCount > 1 ? 'es' : ''} con datos`;
+  } else {
+    document.getElementById('avgMonthlyExpense').innerHTML = usdFormat.format(0);
+    document.getElementById('avgMonthlyLabel').textContent = 'Promedio mensual USD';
+  }
+  
+  document.getElementById('yearRange').innerHTML = years.length ? `${Math.min(...years)} - ${Math.max(...years)}` : '—';
+  
+  let summary = `📌 Filtros: `;
+  if (currentFilters.cuenta !== 'ALL') summary += `Cuenta: ${currentFilters.cuenta} `;
+  if (currentFilters.tipo !== 'ALL') summary += `Tipo: ${currentFilters.tipo} `;
+  if (currentFilters.categoria !== 'ALL') summary += `Cat: ${currentFilters.categoria}`;
+  
+  if (dateFilter.fechaInicio || dateFilter.fechaFin) {
+    summary += ` 📅 `;
+    if (dateFilter.fechaInicio) summary += `Desde ${dateFilter.fechaInicio} `;
+    if (dateFilter.fechaFin) summary += `Hasta ${dateFilter.fechaFin}`;
+  }
+  
+  if (summary === `📌 Filtros: `) summary = `📊 Vista completa (sin filtros)`;
+  document.getElementById('filterSummary').innerHTML = summary;
+  
+  let fechaInfo = '';
+  if (dateFilter.fechaInicio && dateFilter.fechaFin) {
+    fechaInfo = `Mostrando datos del ${formatDate(dateFilter.fechaInicio)} al ${formatDate(dateFilter.fechaFin)}`;
+  } else if (dateFilter.fechaInicio) {
+    fechaInfo = `Mostrando datos desde ${formatDate(dateFilter.fechaInicio)}`;
+  } else if (dateFilter.fechaFin) {
+    fechaInfo = `Mostrando datos hasta ${formatDate(dateFilter.fechaFin)}`;
+  }
+  document.getElementById('fechaInfo').innerHTML = fechaInfo;
+  
+  const monthsWithData = getMonthsWithData(filtered);
+  document.getElementById('debugInfo').innerHTML = `<p>✅ Registros cargados: ${rawData.length} | Filtrados: ${filtered.length} | Años: ${years.join(', ') || '—'}</p>
+  <p>💰 Total USD calculado: ${usdFormat.format(totalUSD)}</p>
+  <p>📅 Meses con datos en el filtro: ${monthsWithData.size} (${Array.from(monthsWithData).join(', ')})</p>
+  <p>📊 Promedio mensual: ${usdFormat.format(totalUSD / (monthsWithData.size || 1))}</p>
+  <p>🔍 Rango de fechas: ${dateFilter.fechaInicio || 'sin inicio'} → ${dateFilter.fechaFin || 'sin fin'}</p>`;
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+function attachEvents() {
+  document.getElementById('filterCuenta').addEventListener('change', e => { currentFilters.cuenta = e.target.value; expandedNodes.clear(); expandedNodesMonth.clear(); refreshDashboard(); });
+  document.getElementById('filterTipo').addEventListener('change', e => { currentFilters.tipo = e.target.value; expandedNodes.clear(); expandedNodesMonth.clear(); refreshDashboard(); });
+  document.getElementById('filterCategoria').addEventListener('change', e => { currentFilters.categoria = e.target.value; expandedNodes.clear(); expandedNodesMonth.clear(); refreshDashboard(); });
+  document.getElementById('btnResetFiltros').addEventListener('click', () => {
+    currentFilters = { cuenta: 'ALL', tipo: 'ALL', categoria: 'ALL' };
+    document.getElementById('filterCuenta').value = 'ALL';
+    document.getElementById('filterTipo').value = 'ALL';
+    document.getElementById('filterCategoria').value = 'ALL';
+    expandedNodes.clear();
+    expandedNodesMonth.clear();
+    refreshDashboard();
+  });
+  
+  document.getElementById('btnAplicarFechas').addEventListener('click', () => {
+    const inicio = document.getElementById('fechaInicio').value;
+    const fin = document.getElementById('fechaFin').value;
+    
+    if (inicio && fin && inicio > fin) {
+      alert('La fecha de inicio no puede ser mayor que la fecha de fin');
+      return;
+    }
+    
+    dateFilter.fechaInicio = inicio || null;
+    dateFilter.fechaFin = fin || null;
+    expandedNodes.clear();
+    expandedNodesMonth.clear();
+    refreshDashboard();
+  });
+  
+  document.getElementById('btnLimpiarFechas').addEventListener('click', () => {
+    document.getElementById('fechaInicio').value = '';
+    document.getElementById('fechaFin').value = '';
+    dateFilter.fechaInicio = null;
+    dateFilter.fechaFin = null;
+    expandedNodes.clear();
+    expandedNodesMonth.clear();
+    refreshDashboard();
+  });
+  
+  document.getElementById('fechaInicio').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('btnAplicarFechas').click();
+  });
+  document.getElementById('fechaFin').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('btnAplicarFechas').click();
+  });
+}
+
+async function loadData() {
+  const statusDiv = document.getElementById('connectionStatus');
+  const dataSpan = document.getElementById('dataStatus');
+  try {
+    statusDiv.innerHTML = '🔄 Cargando datos desde Google Sheets...';
+    const resp = await fetch(SHEET_URL);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const csv = await resp.text();
+    rawData = parseCSV(csv);
+    if (!rawData.length) throw new Error('Sin datos válidos con fecha');
+    populateFilters();
+    attachEvents();
+    refreshDashboard();
+    dataSpan.innerHTML = `✅ ${rawData.length} movimientos cargados (USD columna E)`;
+    statusDiv.innerHTML = '✔️ Reporte listo. Los valores ahora coinciden con la columna DÓLARES del Excel.';
+  } catch(err) {
+    console.error(err);
+    statusDiv.innerHTML = `⚠️ Error: ${err.message}`;
+    dataSpan.innerHTML = 'Error en la fuente';
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', loadData);
+} else {
+  loadData();
+}
+</script>
