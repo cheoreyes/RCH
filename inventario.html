@@ -1,0 +1,572 @@
+<meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Inventario - Repuestos Chinos VZLA</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    
+    <style>
+        :root { --primary-red: #dc2626; --bg-light: #f3f4f6; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-light); margin: 0; padding: 0; }
+        
+        .header-logo { color: var(--primary-red); font-weight: bold; display: flex; align-items: center; gap: 10px; }
+        .gold-icon { color: #d4af37; font-size: 1.5rem; }
+        .main-container { max-width: 98%; margin: 0 auto; padding: 0 10px; }
+        
+        .filter-section { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .input-field { width: 100%; border: 1px solid #d1d5db; border-radius: 6px; padding: 6px 10px; outline: none; font-size: 0.9rem; }
+        .input-field:focus { border-color: var(--primary-red); ring: 2px solid #fee2e2; }
+        
+        .btn-primary { background-color: var(--primary-red); color: white; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; border: none; font-size: 0.9rem; }
+        .btn-primary:hover { background-color: #b91c1c; }
+        .btn-secondary { background-color: #e5e7eb; color: #374151; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; border: none; font-size: 0.9rem; }
+        .btn-success { background-color: #10b981; color: white; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; border: none; font-size: 0.9rem; }
+        .btn-success:hover { background-color: #059669; }
+
+        /* Toggle Switch Style */
+        .toggle-switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #f59e0b; }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        .kpi-card { background: white; border-radius: 8px; padding: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid transparent; height: 100%; min-height: 100px; display: flex; flex-direction: column; justify-content: space-between; }
+        .kpi-title { font-size: 0.75rem; text-transform: uppercase; font-weight: 600; margin-bottom: 5px; }
+        .kpi-value { font-size: 1.5rem; font-weight: 700; }
+        .kpi-sub { font-size: 0.7rem; color: #6b7280; margin-top: 5px; }
+        .border-red { border-left-color: #ef4444; } .border-blue { border-left-color: #3b82f6; }
+        .border-dark { border-left-color: #1f2937; } .border-purple { border-left-color: #8b5cf6; }
+
+        .table-container { background: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        thead { background-color: #1e3a8a; color: white; }
+        th { padding: 8px 6px; text-align: left; font-weight: 600; position: sticky; top: 0; z-index: 10; white-space: nowrap; }
+        td { padding: 6px 8px; border-bottom: 1px solid #e5e7eb; vertical-align: middle; white-space: nowrap; }
+        tr:hover { background-color: #f9fafb; } tr:nth-child(even) { background-color: #f3f4f6; }
+        
+        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.95); z-index: 50; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #dc2626; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .num-format { font-family: 'Courier New', Courier, monospace; }
+    </style>
+
+
+
+    <div id="loading" class="loading-overlay">
+        <div class="spinner"></div>
+        <p class="mt-4 text-gray-600 font-semibold text-lg">Cargando datos...</p>
+    </div>
+
+    <header class="bg-white shadow-sm mb-4">
+        <div class="main-container px-4 py-3 flex justify-between items-center">
+            <div class="header-logo">
+                <i class="fas fa-gold-medal gold-icon"></i>
+                <div>
+                    <h1 class="text-lg leading-none">Repuestos Chinos VZLA</h1>
+                    <span class="text-xs text-gray-500 uppercase tracking-wide">Control de Inventario</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-200">
+                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                Actualizado: <span id="last-update">--/--/----</span>
+            </div>
+        </div>
+        <div class="h-1 w-full bg-red-600"></div>
+    </header>
+
+    <main class="main-container pb-8">
+        
+        <section class="filter-section">
+            <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-3 items-end mb-4">
+                <div class="col-span-1 lg:col-span-2">
+                    <label class="block text-xs font-bold text-gray-500 mb-1">Buscar Producto / Código</label>
+                    <input type="text" id="searchInput" class="input-field" placeholder="Ej: Bomba Aceite...">
+                </div>
+                <div class="col-span-1">
+                    <label class="block text-xs font-bold text-gray-500 mb-1">Proveedor</label>
+                    <select id="filterProvider" class="input-field"><option value="">Todos</option></select>
+                </div>
+                <div class="col-span-1">
+                    <label class="block text-xs font-bold text-gray-500 mb-1">Filtrar por Tienda (Stock &gt; 0)</label>
+                    <select id="filterStore" class="input-field">
+                        <option value="">Todas las Tiendas</option>
+                        <option value="AV">Tienda AV (Aviadores)</option>
+                        <option value="SJ">Tienda SJ (San Jacinto)</option>
+                        <option value="BQ">Tienda BQ (Barquisimeto)</option>
+                    </select>
+                </div>
+                <div class="col-span-2 flex gap-2">
+                    <button onclick="applyFilters()" class="btn-primary flex-1"><i class="fas fa-filter mr-1"></i>Filtrar</button>
+                    <button onclick="resetFilters()" class="btn-secondary flex-1">Limpiar</button>
+                </div>
+            </div>
+
+            
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end pt-4 border-t border-gray-100">
+                <div class="col-span-1">
+                    <label class="block text-xs font-bold text-gray-500 mb-1">Movimientos Desde</label>
+                    <input type="date" id="filterDateFrom" class="input-field">
+                </div>
+                <div class="col-span-1">
+                    <label class="block text-xs font-bold text-gray-500 mb-1">Movimientos Hasta</label>
+                    <input type="date" id="filterDateTo" class="input-field">
+                </div>
+                <div class="col-span-2 flex items-center gap-3">
+                    
+                    <label class="flex items-center cursor-pointer">
+                        <div class="relative">
+                            <input type="checkbox" id="toggleZeroStock" class="sr-only peer">
+                            <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div>
+                        </div>
+                        <span class="ml-3 text-sm font-medium text-gray-700">Ver Solo Sin Stock (Con Movimiento)</span>
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        
+        <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+            <div class="kpi-card border-red"><div><div class="kpi-title text-red-600">$ Valorización Total</div><div class="kpi-value text-gray-800" id="kpi-total-val">Cargando...</div></div><div class="kpi-sub">Suma (Stock * Costo Reposición)</div></div>
+            <div class="kpi-card border-blue"><div><div class="kpi-title text-blue-600">Total Unidades</div><div class="kpi-value text-gray-800" id="kpi-total-units">Cargando...</div></div><div class="kpi-sub">Stock Combinado (AV+SJ+BQ)</div></div>
+            <div class="kpi-card border-dark"><div><div class="kpi-title text-gray-600">Compras Periodo</div><div class="kpi-value text-gray-800" id="kpi-compras">Cargando...</div></div><div class="kpi-sub">Según reporte de compras</div></div>
+            <div class="kpi-card border-purple"><div><div class="kpi-title text-purple-600">Traslados</div><div class="kpi-value text-gray-800" id="kpi-traslados">Cargando...</div></div><div class="kpi-sub">Unidades movidas entre tiendas</div></div>
+        </section>
+
+        
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+             <div class="bg-white p-3 rounded-lg shadow border-l-4 border-yellow-500"><h3 class="font-bold text-gray-500 text-xs uppercase"><i class="fas fa-store mr-1"></i>Tienda AV</h3><p class="text-xl font-bold mt-1 text-gray-800" id="stock-av">0 und</p><p class="text-xs text-gray-400" id="val-av">$0,00</p></div>
+             <div class="bg-white p-3 rounded-lg shadow border-l-4 border-green-500"><h3 class="font-bold text-gray-500 text-xs uppercase"><i class="fas fa-store mr-1"></i>Tienda SJ</h3><p class="text-xl font-bold mt-1 text-gray-800" id="stock-sj">0 und</p><p class="text-xs text-gray-400" id="val-sj">$0,00</p></div>
+             <div class="bg-white p-3 rounded-lg shadow border-l-4 border-indigo-500"><h3 class="font-bold text-gray-500 text-xs uppercase"><i class="fas fa-store mr-1"></i>Tienda BQ</h3><p class="text-xl font-bold mt-1 text-gray-800" id="stock-bq">0 und</p><p class="text-xs text-gray-400" id="val-bq">$0,00</p></div>
+        </section>
+
+        
+        <section class="table-container">
+            <div class="p-3 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                <h2 class="font-bold text-gray-700 text-sm"><i class="fas fa-boxes mr-1"></i>Detalle de Inventario</h2>
+                <div class="flex gap-2">
+                    <span class="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded" id="record-count">0 registros</span>
+                    <button onclick="downloadExcel()" class="btn-success text-xs"><i class="fas fa-file-excel mr-1"></i>Descargar Excel</button>
+                </div>
+            </div>
+            <div class="overflow-x-auto max-h-[500px] relative">
+                <table id="inventoryTable">
+                    <thead>
+                        <tr>
+                            <th class="w-20">Código</th><th>Artículo</th><th class="w-28">Proveedor</th>
+                            <th class="text-center w-16 bg-blue-50 text-blue-800">Compradas</th>
+                            <th class="text-center w-16 bg-red-50 text-red-800">Vendidas</th>
+                            <th class="text-right w-20">Costo Rep.</th><th class="text-right w-20">Precio</th>
+                            <th class="text-center w-12 bg-yellow-50 text-yellow-800">AV</th>
+                            <th class="text-center w-12 bg-green-50 text-green-800">SJ</th>
+                            <th class="text-center w-12 bg-indigo-50 text-indigo-800">BQ</th>
+                            <th class="text-right w-16 font-bold bg-gray-100">Total</th>
+                            <th class="text-right w-20 font-bold bg-gray-100">Valor $</th>
+                            <th class="w-40">Aplicación</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxv4SMVVQROXRvoBsRYHWZRJBCZNsfAstbhJpUmqGADk_Mjd9PLBBsOv6TxWrvOQxVZ/exec';
+        let inventoryData = [], purchasesData = [], transfersData = [], ordersData = [];
+        let movementStats = {}; // { CODIGO: { bought: X, sold: Y, movements: [ { date: 'YYYY-MM-DD', type: 'buy'|'sell', qty: Z } ] } }
+
+        // Utilidades
+        function parseNumber(value) {
+            if (value === null || value === undefined || value === '') return 0;
+            let str = value.toString().replace(/\./g, '').replace(',', '.');
+            let num = parseFloat(str);
+            return isNaN(num) ? 0 : num;
+        }
+        const currencyFormatter = new Intl.NumberFormat('es-VE', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+        const unitFormatter = new Intl.NumberFormat('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            document.getElementById('searchInput').addEventListener('keyup', (e) => { if(e.key === 'Enter') applyFilters(); });
+            // Escuchar cambios en los nuevos filtros
+            document.getElementById('filterDateFrom').addEventListener('change', applyFilters);
+            document.getElementById('filterDateTo').addEventListener('change', applyFilters);
+            document.getElementById('toggleZeroStock').addEventListener('change', applyFilters);
+        });
+
+        async function loadData() {
+            try {
+                const response = await fetch(SCRIPT_URL);
+                if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+                const result = await response.json();
+                if (result.inventario && result.inventario.error) throw new Error(result.inventario.error);
+
+                inventoryData = (result.inventario || []).filter(row => row.CODIGO && row.CODIGO.toString().trim() !== '');
+                purchasesData = result.compras || [];
+                transfersData = result.traslados || [];
+                ordersData = result.pedidos || [];
+
+                preprocessMovementData(); // Ahora incluye fechas
+                populateDropdowns();
+                renderTable(inventoryData);
+                calculateFilteredKPIs(inventoryData); // ← Inicializa KPIs con todos los datos
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('last-update').innerText = new Date().toLocaleDateString('es-VE');
+            } catch (error) {
+                console.error("Error:", error);
+                document.getElementById('loading').innerHTML = `<div class="text-center text-red-600"><i class="fas fa-exclamation-triangle text-4xl mb-4"></i><br>Error: ${error.message}<br><br><button onclick="location.reload()" class="btn-primary">Reintentar</button></div>`;
+            }
+        }
+
+        function preprocessMovementData() {
+            movementStats = {};
+            
+            // Procesar Compras con FECHA
+            purchasesData.forEach(p => { 
+                if(p.CODIGO && p.FECHA) { 
+                    if(!movementStats[p.CODIGO]) movementStats[p.CODIGO] = { bought: 0, sold: 0, movements: [] }; 
+                    const qty = parseNumber(p.CANTIDAD);
+                    movementStats[p.CODIGO].bought += qty;
+                    movementStats[p.CODIGO].movements.push({
+                        date: p.FECHA, // Asumimos formato YYYY-MM-DD o similar
+                        type: 'buy',
+                        qty: qty
+                    });
+                }
+            });
+
+            // Procesar Ventas/Pedidos con FECHA
+            ordersData.forEach(o => { 
+                if(o.CODIGO && o.FECHA) { 
+                    if(!movementStats[o.CODIGO]) movementStats[o.CODIGO] = { bought: 0, sold: 0, movements: [] }; 
+                    const qty = parseNumber(o.CANTIDAD);
+                    movementStats[o.CODIGO].sold += qty;
+                    movementStats[o.CODIGO].movements.push({
+                        date: o.FECHA,
+                        type: 'sell',
+                        qty: qty
+                    });
+                }
+            });
+        }
+
+        function populateDropdowns() {
+            const providers = [...new Set(inventoryData.map(item => item.PROVEEDOR).filter(p => p))].sort();
+            const providerSelect = document.getElementById('filterProvider');
+            providers.forEach(p => { const option = document.createElement('option'); option.value = p; option.innerText = p; providerSelect.appendChild(option); });
+        }
+
+        // FUNCIÓN CLAVE: Calcula KPIs basándose en datos filtrados
+        function calculateFilteredKPIs(data) {
+            let totalVal = 0, totalUnits = 0, stockAV = 0, valAV = 0, stockSJ = 0, valSJ = 0, stockBQ = 0, valBQ = 0;
+            
+            data.forEach(item => {
+                const qtyAV = parseNumber(item.CANTIDADAV);
+                const qtySJ = parseNumber(item.CANTIDADSJ);
+                const qtyBQ = parseNumber(item.CANTIDADBQ);
+                const cost = parseNumber(item.COSTOREPOSICION);
+                
+                const totalQty = qtyAV + qtySJ + qtyBQ;
+                const totalItemVal = totalQty * cost;
+
+                totalVal += totalItemVal;
+                totalUnits += totalQty;
+
+                stockAV += qtyAV; valAV += (qtyAV * cost);
+                stockSJ += qtySJ; valSJ += (qtySJ * cost);
+                stockBQ += qtyBQ; valBQ += (qtyBQ * cost);
+            });
+
+            document.getElementById('kpi-total-val').innerText = currencyFormatter.format(totalVal);
+            document.getElementById('kpi-total-units').innerText = unitFormatter.format(totalUnits);
+            
+            const filteredCodes = new Set(data.map(item => item.CODIGO));
+            const dateFrom = document.getElementById('filterDateFrom').value;
+            const dateTo = document.getElementById('filterDateTo').value;
+            const fromDate = dateFrom ? new Date(dateFrom) : null;
+            const toDate = dateTo ? new Date(dateTo) : null;
+
+            let filteredPurchases = purchasesData.filter(p => {
+                if (!filteredCodes.has(p.CODIGO)) return false;
+                if (!p.FECHA) return true;
+                const purchaseDate = new Date(p.FECHA);
+                let inRange = true;
+                if (fromDate) inRange = inRange && (purchaseDate >= fromDate);
+                if (toDate) inRange = inRange && (purchaseDate <= toDate);
+                return inRange;
+            });
+
+            let filteredTransfers = transfersData.filter(t => {
+                if (!filteredCodes.has(t.CODIGO)) return false;
+                if (!t.FECHA) return true;
+                const transferDate = new Date(t.FECHA);
+                let inRange = true;
+                if (fromDate) inRange = inRange && (transferDate >= fromDate);
+                if (toDate) inRange = inRange && (transferDate <= toDate);
+                return inRange;
+            });
+
+            let totalPurchases = filteredPurchases.reduce((sum, p) => sum + parseNumber(p.TOTAL || 0), 0);
+            let totalTransfers = filteredTransfers.reduce((sum, t) => sum + parseNumber(t.CANTIDAD || 0), 0);
+
+            document.getElementById('kpi-compras').innerText = currencyFormatter.format(totalPurchases);
+            document.getElementById('kpi-traslados').innerText = unitFormatter.format(totalTransfers);
+
+            document.getElementById('stock-av').innerText = unitFormatter.format(stockAV) + " und";
+            document.getElementById('val-av').innerText = currencyFormatter.format(valAV);
+            document.getElementById('stock-sj').innerText = unitFormatter.format(stockSJ) + " und";
+            document.getElementById('val-sj').innerText = currencyFormatter.format(valSJ);
+            document.getElementById('stock-bq').innerText = unitFormatter.format(stockBQ) + " und";
+            document.getElementById('val-bq').innerText = currencyFormatter.format(valBQ);
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            document.getElementById('record-count').innerText = `${data.length} registros`;
+            const displayData = data.slice(0, 500); 
+            if (displayData.length === 0) { tbody.innerHTML = '<tr><td colspan="13" class="text-center py-4 text-gray-500">No se encontraron resultados</td></tr>'; return; }
+            
+            displayData.forEach(item => {
+                const qtyAV = parseNumber(item.CANTIDADAV), qtySJ = parseNumber(item.CANTIDADSJ), qtyBQ = parseNumber(item.CANTIDADBQ);
+                const cost = parseNumber(item.COSTOREPOSICION), price = parseNumber(item.PRECIO);
+                const totalQty = qtyAV + qtySJ + qtyBQ, totalVal = totalQty * cost;
+                const stats = movementStats[item.CODIGO] || { bought: 0, sold: 0 };
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="font-mono text-xs text-gray-600">${item.CODIGO}</td>
+                    <td class="font-medium text-gray-800">${item.ARTICULO}</td>
+                    <td class="text-sm">${item.PROVEEDOR || '-'}</td>
+                    <td class="text-center text-blue-700 font-bold">${stats.bought > 0 ? unitFormatter.format(stats.bought) : '-'}</td>
+                    <td class="text-center text-red-700 font-bold">${stats.sold > 0 ? unitFormatter.format(stats.sold) : '-'}</td>
+                    <td class="text-right text-sm text-gray-600 num-format">${currencyFormatter.format(cost)}</td>
+                    <td class="text-right text-sm font-bold text-green-700 num-format">${currencyFormatter.format(price)}</td>
+                    <td class="text-center ${qtyAV > 0 ? 'bg-yellow-50 font-bold text-yellow-700' : 'text-gray-300'}">${qtyAV}</td>
+                    <td class="text-center ${qtySJ > 0 ? 'bg-green-50 font-bold text-green-700' : 'text-gray-300'}">${qtySJ}</td>
+                    <td class="text-center ${qtyBQ > 0 ? 'bg-indigo-50 font-bold text-indigo-700' : 'text-gray-300'}">${qtyBQ}</td>
+                    <td class="text-right font-bold bg-gray-50 text-gray-800">${totalQty}</td>
+                    <td class="text-right font-bold text-blue-800 bg-gray-50 num-format">${currencyFormatter.format(totalVal)}</td>
+                    <td class="text-sm text-gray-500 italic">${item.APLICACION || '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function applyFilters() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const provider = document.getElementById('filterProvider').value;
+            const store = document.getElementById('filterStore').value;
+            const dateFrom = document.getElementById('filterDateFrom').value;
+            const dateTo = document.getElementById('filterDateTo').value;
+            const showZeroStock = document.getElementById('toggleZeroStock').checked;
+
+            const filtered = inventoryData.filter(item => {
+                const concat = (item.CONCATENAR || `${item.ARTICULO} ${item.CODIGO} ${item.APLICACION}`).toLowerCase();
+                const matchSearch = concat.includes(search);
+                const matchProvider = provider ? item.PROVEEDOR === provider : true;
+                
+                let matchStore = true;
+                if (store === 'AV') matchStore = (parseNumber(item.CANTIDADAV) > 0);
+                if (store === 'SJ') matchStore = (parseNumber(item.CANTIDADSJ) > 0);
+                if (store === 'BQ') matchStore = (parseNumber(item.CANTIDADBQ) > 0);
+
+                let matchZeroStock = true;
+                if (showZeroStock) {
+                    const totalStock = parseNumber(item.CANTIDADAV) + parseNumber(item.CANTIDADSJ) + parseNumber(item.CANTIDADBQ);
+                    const stats = movementStats[item.CODIGO] || { bought: 0, sold: 0 };
+                    matchZeroStock = (totalStock === 0 && (stats.bought > 0 || stats.sold > 0));
+                }
+
+                let matchDates = true;
+                if (dateFrom || dateTo) {
+                    const stats = movementStats[item.CODIGO];
+                    if (!stats || !stats.movements || stats.movements.length === 0) {
+                        matchDates = false;
+                    } else {
+                        matchDates = stats.movements.some(mov => {
+                            const movDate = new Date(mov.date);
+                            const from = dateFrom ? new Date(dateFrom) : null;
+                            const to = dateTo ? new Date(dateTo) : null;
+                            
+                            let inRange = true;
+                            if (from) inRange = inRange && (movDate >= from);
+                            if (to) inRange = inRange && (movDate <= to);
+                            return inRange;
+                        });
+                    }
+                }
+
+                return matchSearch && matchProvider && matchStore && matchZeroStock && matchDates;
+            });
+
+            renderTable(filtered);
+            calculateFilteredKPIs(filtered); // ← ACTUALIZA KPIs CON FILTROS
+
+            let filterInfo = [];
+            if(showZeroStock) filterInfo.push("Sin Stock");
+            if(dateFrom || dateTo) filterInfo.push(`Fechas: ${dateFrom || '...'} - ${dateTo || '...'}`);
+            document.getElementById('record-count').innerText = `${filtered.length} registros${filterInfo.length > 0 ? ' (' + filterInfo.join(', ') + ')' : ''}`;
+            
+            if(showZeroStock || dateFrom || dateTo) {
+                document.getElementById('record-count').classList.add('bg-orange-100', 'text-orange-800');
+            } else {
+                document.getElementById('record-count').classList.remove('bg-orange-100', 'text-orange-800');
+            }
+        }
+
+        function resetFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('filterProvider').value = '';
+            document.getElementById('filterStore').value = '';
+            document.getElementById('filterDateFrom').value = '';
+            document.getElementById('filterDateTo').value = '';
+            document.getElementById('toggleZeroStock').checked = false;
+            document.getElementById('record-count').classList.remove('bg-orange-100', 'text-orange-800');
+            
+            renderTable(inventoryData);
+            calculateFilteredKPIs(inventoryData); // ← VUELVE A MOSTRAR TOTALES GLOBALES
+        }
+
+        // --- FUNCIÓN DE DESCARGA EXCEL CORREGIDA Y ROBUSTA ---
+        function downloadExcel() {
+            // 1. Obtener datos filtrados actuales (RESPETA TODOS LOS FILTROS ACTIVOS)
+            const dataToExport = getCurrentFilteredData();
+            
+            if (dataToExport.length === 0) {
+                alert("No hay datos para exportar con los filtros aplicados.");
+                return;
+            }
+
+            // 2. Mapear datos a formato limpio para Excel
+            const excelData = dataToExport.map(item => {
+                const qtyAV = parseNumber(item.CANTIDADAV);
+                const qtySJ = parseNumber(item.CANTIDADSJ);
+                const qtyBQ = parseNumber(item.CANTIDADBQ);
+                const cost = parseNumber(item.COSTOREPOSICION);
+                const price = parseNumber(item.PRECIO);
+                const totalQty = qtyAV + qtySJ + qtyBQ;
+                const totalVal = totalQty * cost;
+                const stats = movementStats[item.CODIGO] || { bought: 0, sold: 0 };
+
+                return {
+                    'Código': item.CODIGO,
+                    'Artículo': item.ARTICULO,
+                    'Aplicación': item.APLICACION || '',
+                    'Proveedor': item.PROVEEDOR || '',
+                    'Compradas': stats.bought,
+                    'Vendidas': stats.sold,
+                    'Costo Rep.': cost,
+                    'Precio': price,
+                    'Stock AV': qtyAV,
+                    'Stock SJ': qtySJ,
+                    'Stock BQ': qtyBQ,
+                    'Total Stock': totalQty,
+                    'Valor Total ($)': totalVal
+                };
+            });
+
+            // 3. Crear Hoja de Cálculo
+            const ws = XLSX.utils.json_to_sheet(excelData);
+            
+            // Ajustar anchos de columna automáticamente
+            const colWidths = [
+                { wch: 12 }, { wch: 40 }, { wch: 30 }, { wch: 15 }, 
+                { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, 
+                { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 15 }
+            ];
+            ws['!cols'] = colWidths;
+
+            // 4. Crear Libro y Añadir Hoja
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Inventario");
+
+            // 5. Generar nombre de archivo con fecha actual
+            const fileName = `Inventario_VZLA_${new Date().toISOString().slice(0,10)}.xlsx`;
+
+            // 6. Descargar manualmente usando Blob (más compatible)
+            try {
+                // Escribir libro como array de bytes
+                const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                
+                // Crear Blob con tipo MIME correcto para Excel
+                const blob = new Blob([wbout], { 
+                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+                });
+                
+                // Crear URL temporal
+                const url = URL.createObjectURL(blob);
+                
+                // Crear elemento <a> invisible para forzar descarga
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = fileName; // Nombre exacto del archivo
+                link.style.display = 'none';
+                
+                // Agregar al DOM, hacer clic y remover
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // Liberar memoria
+                setTimeout(() => URL.revokeObjectURL(url), 100);
+                
+            } catch (error) {
+                console.error("Error al generar Excel:", error);
+                alert("Hubo un error al generar el archivo Excel. Por favor, intenta nuevamente.");
+            }
+        }
+
+        function getCurrentFilteredData() {
+            // Esta función ahora replica EXACTAMENTE la lógica de applyFilters()
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const provider = document.getElementById('filterProvider').value;
+            const store = document.getElementById('filterStore').value;
+            const dateFrom = document.getElementById('filterDateFrom').value;
+            const dateTo = document.getElementById('filterDateTo').value;
+            const showZeroStock = document.getElementById('toggleZeroStock').checked;
+
+            return inventoryData.filter(item => {
+                const concat = (item.CONCATENAR || `${item.ARTICULO} ${item.CODIGO} ${item.APLICACION}`).toLowerCase();
+                const matchSearch = concat.includes(search);
+                const matchProvider = provider ? item.PROVEEDOR === provider : true;
+                
+                let matchStore = true;
+                if (store === 'AV') matchStore = (parseNumber(item.CANTIDADAV) > 0);
+                if (store === 'SJ') matchStore = (parseNumber(item.CANTIDADSJ) > 0);
+                if (store === 'BQ') matchStore = (parseNumber(item.CANTIDADBQ) > 0);
+
+                let matchZeroStock = true;
+                if (showZeroStock) {
+                    const totalStock = parseNumber(item.CANTIDADAV) + parseNumber(item.CANTIDADSJ) + parseNumber(item.CANTIDADBQ);
+                    const stats = movementStats[item.CODIGO] || { bought: 0, sold: 0 };
+                    matchZeroStock = (totalStock === 0 && (stats.bought > 0 || stats.sold > 0));
+                }
+
+                let matchDates = true;
+                if (dateFrom || dateTo) {
+                    const stats = movementStats[item.CODIGO];
+                    if (!stats || !stats.movements || stats.movements.length === 0) {
+                        matchDates = false;
+                    } else {
+                        matchDates = stats.movements.some(mov => {
+                            const movDate = new Date(mov.date);
+                            const from = dateFrom ? new Date(dateFrom) : null;
+                            const to = dateTo ? new Date(dateTo) : null;
+                            
+                            let inRange = true;
+                            if (from) inRange = inRange && (movDate >= from);
+                            if (to) inRange = inRange && (movDate <= to);
+                            return inRange;
+                        });
+                    }
+                }
+
+                return matchSearch && matchProvider && matchStore && matchZeroStock && matchDates;
+            });
+        }
+    </script>
