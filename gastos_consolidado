@@ -1,0 +1,652 @@
+<meta charset="UTF-8"> 
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Repuestos Chinos VZLA - Control de Gastos</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>tailwind.config={theme:{extend:{colors:{primary:'#D32F2F',dark:'#0f172a',success:'#10b981',warning:'#f59e0b'}}}};</script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+    body{font-family:'Inter',system-ui,sans-serif}
+    .chart-container{position:relative;height:300px;width:100%}
+    .chart-container-sm{position:relative;height:250px;width:100%}
+    .table-container{max-height:500px;overflow:auto}
+    .table-container table{width:100%;border-collapse:collapse}
+    .table-container th,.table-container td{padding:10px 12px;text-align:left;border-bottom:1px solid #e2e8f0;font-size:14px}
+    .table-container th{background:#f1f5f9;position:sticky;top:0;font-weight:600;z-index:10}
+    .table-container tr:hover{background:#f8fafc}
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600}
+    .badge-egreso{background:#fee2e2;color:#991b1b}
+    .badge-ingreso{background:#dcfce7;color:#166534}
+    .badge-ajuste{background:#fef3c7;color:#92400e}
+  </style>
+
+
+
+<header class="bg-white border-b-4 border-primary shadow-sm px-6 py-4 flex flex-col md:flex-row md:items-center justify-between sticky top-0 z-50">
+  <div class="flex items-center">
+    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 100 100" fill="none" class="mr-3">
+      <path d="M15 45 L50 35 L85 45 L75 50 L50 42 L25 50 Z" fill="#D32F2F"></path>
+      <rect x="25" y="55" width="50" height="8" fill="#D32F2F"></rect>
+      <rect x="20" y="70" width="60" height="8" fill="#D32F2F"></rect>
+      <rect x="15" y="85" width="70" height="8" fill="#D32F2F"></rect>
+      <rect x="42" y="50" width="16" height="40" fill="#D32F2F"></rect>
+    </svg>
+    <div>
+      <h1 class="text-2xl font-black tracking-tight text-slate-900">Repuestos Chinos <span class="text-primary">VZLA</span></h1>
+      <p class="text-sm font-medium text-slate-500 uppercase tracking-widest mt-1">Control de Gastos Financieros</p>
+    </div>
+  </div>
+  <div class="flex items-center space-x-2 bg-slate-100 px-4 py-2 rounded-full font-semibold text-sm mt-4 md:mt-0">
+    <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+    <span id="dataStatus">Esperando datos...</span>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-6">
+  
+  
+  <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-4">
+    <div class="flex flex-wrap gap-4">
+      <div class="flex items-center gap-2">
+        <span class="text-slate-700 font-bold text-sm">Empresa:</span>
+        <select id="companyFilter" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+          <option value="ALL">Todas</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-slate-700 font-bold text-sm">Tipo Gasto:</span>
+        <select id="expenseTypeFilter" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+          <option value="ALL">Todos</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-slate-700 font-bold text-sm">Categoría:</span>
+        <select id="categoryFilter" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+          <option value="ALL">Todas</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-slate-700 font-bold text-sm">Asiento:</span>
+        <select id="asientoFilter" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary min-w-[120px]">
+          <option value="ALL">Todos</option>
+        </select>
+      </div>
+    </div>
+    <div class="flex flex-wrap items-center gap-4 pt-2 border-t border-slate-100">
+      <div class="flex items-center gap-2">
+        <label class="text-sm font-medium text-slate-600">Desde:</label>
+        <input type="date" id="dateStart" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-sm font-medium text-slate-600">Hasta:</label>
+        <input type="date" id="dateEnd" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+      </div>
+      <button id="btnApplyDateFilter" class="px-4 py-2 bg-primary text-white rounded-lg font-bold text-sm hover:bg-red-700 transition-colors">Aplicar</button>
+      <button id="btnClearFilters" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-bold text-sm hover:bg-slate-300 transition-colors">Limpiar Todo</button>
+      <span id="dateFilterHint" class="text-xs text-primary font-medium hidden">📅 Filtro activo</span>
+    </div>
+  </div>
+
+  
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="bg-white rounded-xl shadow-sm border border-primary/30 p-4">
+      <h3 class="text-primary font-bold text-xs uppercase mb-1">$ IMPLICITA</h3>
+      <span class="text-2xl font-black text-primary" id="kpi-implicita">$0.00</span>
+      <p class="text-xs text-slate-500 mt-1">Tasa implícita total</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+      <h3 class="text-slate-600 font-bold text-xs uppercase mb-1">TOTAL GRAL</h3>
+      <span class="text-2xl font-black text-slate-800" id="kpi-totalGral">$0.00</span>
+      <p class="text-xs text-slate-500 mt-1">Monto total general</p>
+    </div>
+    <div class="bg-slate-900 text-white rounded-xl shadow-sm border border-slate-800 p-4">
+      <h3 class="font-bold text-xs uppercase text-slate-300 mb-1">DIFERENCIA</h3>
+      <span class="text-2xl font-black" id="kpi-diferencia">$0.00</span>
+      <p class="text-xs text-slate-400 mt-1">Total Gral - $ Implícita</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+      <h3 class="text-slate-600 font-bold text-xs uppercase mb-1">% PAGADO EN BS</h3>
+      <span class="text-2xl font-black text-slate-800" id="kpi-porcentajeBs">0%</span>
+      <p class="text-xs text-slate-500 mt-1">Bs / Total Gral</p>
+    </div>
+  </div>
+
+  
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-slate-900">📈 Evolución de Gastos por Mes</h2>
+        <span class="text-xs text-slate-500" id="chartPeriodLabel"></span>
+      </div>
+      <div class="chart-container"><canvas id="barChart"></canvas></div>
+    </div>
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-bold text-slate-900 mb-4">📊 Gastos por Categoría</h2>
+      <div class="chart-container-sm"><canvas id="pieChart"></canvas></div>
+      <div class="flex justify-center flex-wrap gap-3 mt-4" id="pieLegend"></div>
+    </div>
+  </div>
+  
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-bold text-slate-900 mb-4">🏷️ Gastos por Tipo</h2>
+      <div class="chart-container-sm"><canvas id="doughnutChart"></canvas></div>
+      <div class="flex justify-center flex-wrap gap-3 mt-4" id="doughnutLegend"></div>
+    </div>
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-bold text-slate-900 mb-4">🏢 Gastos por Empresa</h2>
+      <div class="chart-container-sm"><canvas id="companyChart"></canvas></div>
+    </div>
+  </div>
+
+  
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-bold text-slate-900">📋 Detalle de Movimientos</h2>
+      <span class="text-sm text-slate-500" id="tableCount">0 registros</span>
+    </div>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th><th>Empresa</th><th>Tipo Cuenta</th><th>Tipo Gasto</th><th>Categoría</th>
+            <th>Asiento</th><th>Descripción</th><th class="text-right">Monto</th><th class="text-right">Total $</th><th class="text-right">$ Implícita</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <details class="bg-slate-100 rounded-lg p-4 text-xs">
+    <summary class="font-bold cursor-pointer text-slate-700">🔍 Información de Datos</summary>
+    <div id="debugInfo" class="mt-3 space-y-1 text-slate-600"></div>
+  </details>
+  <div id="connectionStatus" class="text-center text-sm text-slate-500 py-2"></div>
+</main>
+
+<script>
+// ============================================
+// CONFIGURACIÓN GLOBAL
+// ============================================
+window.DASHBOARD_CONFIG = {
+  SHEET_URL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTCYVQkqg8qgPq-OMKINCAlI88Du4-GkjXnC13T0ZoAQolXbWayDCnvax0S_aydd6nGsoKqCtb7DsOS/pub?gid=0&single=true&output=csv',
+  columns: {
+    empresa: 'EMPRESA', fecha: 'FECHA', tipoCuenta: 'TIPO CUENTA', tipoGasto: 'TIPO DE GASTOS',
+    categoria: 'CATEGORIA', asiento: 'ASIENTO', descripcion: 'DESCRIPCION', monto: 'MONTO',
+    totalBs: 'TOTAL Bs ($)', totalUsd: 'TOTAL $', totalGral: 'TOTAL GRAL', implicita: '$  IMPLICITA'
+  },
+  monthMap: { 'enero':'Enero','febrero':'Febrero','marzo':'Marzo','abril':'Abril','mayo':'Mayo','junio':'Junio','julio':'Julio','agosto':'Agosto','septiembre':'Septiembre','octubre':'Octubre','noviembre':'Noviembre','diciembre':'Diciembre' }
+};
+
+window.filters = { company: 'ALL', expenseType: 'ALL', category: 'ALL', asiento: 'ALL', dateStart: null, dateEnd: null };
+window.rawData = [];
+window.chartInstances = {};
+
+// ✅ FORMATO VENEZOLANO: USD 151.293,00 (punto para miles, coma para decimales)
+window.formatterUSD = new Intl.NumberFormat('es-VE', { 
+  style: 'currency', 
+  currency: 'USD', 
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2 
+});
+
+// ✅ Función auxiliar para redondeo financiero seguro
+function round2(num) {
+  return Math.round((num + Number.EPSILON) * 100) / 100;
+}
+
+// ✅ FUNCIÓN INTELIGENTE PARA LEER NÚMEROS (Maneja 1.000,00 y 1,000.00)
+function parseLocaleNumber(string) {
+    if (!string) return 0;
+    var s = string.toString().replace(/[$€£¥\s]/g, '').trim();
+    if (!s) return 0;
+
+    var lastDot = s.lastIndexOf('.');
+    var lastComma = s.lastIndexOf(',');
+
+    if (lastDot > -1 && lastComma > -1) {
+        if (lastComma > lastDot) {
+            return parseFloat(s.replace(/\./g, '').replace(',', '.'));
+        } else {
+            return parseFloat(s.replace(/,/g, ''));
+        }
+    } else if (lastComma > -1) {
+        var parts = s.split(',');
+        if (parts.length > 2 || (parts[1] && parts[1].length === 3)) {
+            return parseFloat(s.replace(/,/g, ''));
+        } else {
+            return parseFloat(s.replace(',', '.'));
+        }
+    }
+    return parseFloat(s);
+}
+
+// ============================================
+// PARSING DE CSV
+// ============================================
+function parseCSVLine(line) {
+  var result = [], current = { val: '', inQuotes: false };
+  for (var i = 0; i < line.length; i++) {
+    var c = line[i], next = line[i+1];
+    if (c === '"') {
+      if (current.inQuotes && next === '"') { current.val += '"'; i++; }
+      else current.inQuotes = !current.inQuotes;
+    } else if (c === ',' && !current.inQuotes) {
+      result.push(current.val); current.val = '';
+    } else current.val += c;
+  }
+  result.push(current.val);
+  return result.map(v => v.trim());
+}
+
+function parseCSV(text) {
+  var lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return [];
+  var headers = parseCSVLine(lines[0]);
+  
+  return lines.slice(1).map(line => {
+    var values = parseCSVLine(line);
+    var obj = {};
+    headers.forEach((h, i) => {
+      var v = values[i] || '';
+      if (['MONTO', 'TOTAL Bs ($)', 'TOTAL $', 'TOTAL GRAL', '$  IMPLICITA'].includes(h)) {
+        v = parseLocaleNumber(v);
+        v = isNaN(v) ? 0 : round2(v);
+      }
+      obj[h] = v;
+    });
+    if (obj['FECHA']) {
+      var dateParts = obj['FECHA'].split('/');
+      if (dateParts.length === 3) {
+        obj._dateObj = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
+        obj._monthName = window.DASHBOARD_CONFIG.monthMap[dateParts[1].toLowerCase()] || dateParts[1];
+        obj._monthNum = parseInt(dateParts[1]);
+        obj._year = parseInt(dateParts[2]);
+      }
+    }
+    return obj;
+  }).filter(row => row._dateObj);
+}
+
+// ============================================
+// FILTROS Y OPCIONES
+// ============================================
+function populateFilterOptions() {
+  var companies = [...new Set(rawData.map(r => r['EMPRESA']).filter(Boolean))].sort();
+  var expenseTypes = [...new Set(rawData.map(r => r['TIPO DE GASTOS']).filter(Boolean))].sort();
+  var categories = [...new Set(rawData.map(r => r['CATEGORIA']).filter(Boolean))].sort();
+  
+  var companySel = document.getElementById('companyFilter');
+  var expenseSel = document.getElementById('expenseTypeFilter');
+  var categorySel = document.getElementById('categoryFilter');
+  
+  companies.forEach(c => { if(c) companySel.add(new Option(c, c)); });
+  expenseTypes.forEach(t => { if(t) expenseSel.add(new Option(t, t)); });
+  categories.forEach(cat => { if(cat) categorySel.add(new Option(cat, cat)); });
+  
+  // Inicializar asientos con todos
+  updateAsientoOptions('ALL');
+}
+
+// ✅ FUNCIÓN PARA ACTUALIZAR ASIENTOS SEGÚN CATEGORÍA
+function updateAsientoOptions(categoryFilter) {
+  var asientoSel = document.getElementById('asientoFilter');
+  var currentSelection = window.filters.asiento;
+  
+  // Guardar el valor actual y limpiar
+  asientoSel.innerHTML = '<option value="ALL">Todos</option>';
+  
+  // Obtener asientos únicos basados en la categoría filtrada
+  var asientos;
+  if (categoryFilter === 'ALL') {
+    // Si es "Todas" las categorías, mostrar todos los asientos
+    asientos = [...new Set(rawData.map(r => r['ASIENTO']).filter(Boolean))].sort();
+  } else {
+    // Filtrar por categoría específica
+    var filteredData = rawData.filter(r => r['CATEGORIA'] === categoryFilter);
+    asientos = [...new Set(filteredData.map(r => r['ASIENTO']).filter(Boolean))].sort();
+  }
+  
+  // Agregar opciones de asientos
+  asientos.forEach(a => { 
+    if(a) asientoSel.add(new Option(a, a)); 
+  });
+  
+  // Restaurar selección si es válida, sino seleccionar "Todos"
+  if (currentSelection && currentSelection !== 'ALL' && asientos.includes(currentSelection)) {
+    asientoSel.value = currentSelection;
+  } else {
+    window.filters.asiento = 'ALL';
+    asientoSel.value = 'ALL';
+  }
+}
+
+function getFilteredData() {
+  return rawData.filter(row => {
+    if (window.filters.company !== 'ALL' && row['EMPRESA'] !== window.filters.company) return false;
+    if (window.filters.expenseType !== 'ALL' && row['TIPO DE GASTOS'] !== window.filters.expenseType) return false;
+    if (window.filters.category !== 'ALL' && row['CATEGORIA'] !== window.filters.category) return false;
+    if (window.filters.asiento !== 'ALL' && row['ASIENTO'] !== window.filters.asiento) return false;
+    if (window.filters.dateStart && row._dateObj < new Date(window.filters.dateStart)) return false;
+    if (window.filters.dateEnd && row._dateObj > new Date(window.filters.dateEnd + 'T23:59:59')) return false;
+    return true;
+  });
+}
+
+// ============================================
+// AGREGACIÓN DE DATOS
+// ============================================
+function aggregateData(data) {
+  var byMonth = {}, byCategory = {}, byType = {}, byCompany = {};
+  
+  data.forEach(row => {
+    var mKey = row._monthName + ' ' + row._year;
+    if (!byMonth[mKey]) byMonth[mKey] = { label: mKey, monthNum: row._monthNum, year: row._year, total: 0, implicita: 0, bs: 0 };
+    
+    byMonth[mKey].total = round2(byMonth[mKey].total + (row['TOTAL $'] || 0));
+    byMonth[mKey].implicita = round2(byMonth[mKey].implicita + (row['$  IMPLICITA'] || 0));
+    byMonth[mKey].bs = round2(byMonth[mKey].bs + (row['TOTAL Bs ($)'] || 0));
+    
+    var cat = row['CATEGORIA'] || 'Sin categoría';
+    if (!byCategory[cat]) byCategory[cat] = { name: cat, value: 0 };
+    byCategory[cat].value = round2(byCategory[cat].value + (row['$  IMPLICITA'] || 0));
+    
+    var type = row['TIPO DE GASTOS'] || 'Sin tipo';
+    if (!byType[type]) byType[type] = { name: type, value: 0 };
+    byType[type].value = round2(byType[type].value + (row['$  IMPLICITA'] || 0));
+    
+    var comp = row['EMPRESA'] || 'Sin empresa';
+    if (!byCompany[comp]) byCompany[comp] = { name: comp, value: 0 };
+    byCompany[comp].value = round2(byCompany[comp].value + (row['$  IMPLICITA'] || 0));
+  });
+  
+  return {
+    byMonth: Object.values(byMonth).sort((a,b) => (a.year*100+a.monthNum) - (b.year*100+b.monthNum)),
+    byCategory: Object.values(byCategory).sort((a,b) => b.value - a.value).slice(0, 8),
+    byType: Object.values(byType).sort((a,b) => b.value - a.value),
+    byCompany: Object.values(byCompany).sort((a,b) => b.value - a.value)
+  };
+}
+
+// ============================================
+// CÁLCULO DE KPIs
+// ============================================
+function calculateKPIs(data) {
+  var totalImplicita = data.reduce((sum, r) => sum + (r['$  IMPLICITA'] || 0), 0);
+  var totalGral = data.reduce((sum, r) => sum + (r['TOTAL GRAL'] || 0), 0);
+  var totalBs = data.reduce((sum, r) => sum + (r['TOTAL Bs ($)'] || 0), 0);
+  
+  var diferencia = totalGral - totalImplicita;
+  var porcentajeBs = totalGral > 0 ? (totalBs / totalGral) * 100 : 0;
+  
+  return { 
+    totalImplicita: round2(totalImplicita),
+    totalGral: round2(totalGral),
+    diferencia: round2(diferencia),
+    porcentajeBs: round2(porcentajeBs),
+    totalBs: round2(totalBs)
+  };
+}
+
+// ============================================
+// ACTUALIZACIÓN DE KPIs
+// ============================================
+function updateKPIs(kpis) {
+  document.getElementById('kpi-implicita').textContent = formatterUSD.format(kpis.totalImplicita);
+  document.getElementById('kpi-totalGral').textContent = formatterUSD.format(kpis.totalGral);
+  
+  var diffEl = document.getElementById('kpi-diferencia');
+  diffEl.textContent = formatterUSD.format(kpis.diferencia);
+  diffEl.className = 'text-2xl font-black ' + (kpis.diferencia >= 0 ? 'text-emerald-400' : 'text-red-400');
+  
+  var pctEl = document.getElementById('kpi-porcentajeBs');
+  pctEl.textContent = kpis.porcentajeBs.toFixed(2) + '%';
+  pctEl.className = 'text-2xl font-black ' + (kpis.porcentajeBs >= 50 ? 'text-emerald-600' : 'text-amber-600');
+}
+
+// ============================================
+// RENDERIZADO DE TABLA
+// ============================================
+function renderTable(data) {
+  var tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+  document.getElementById('tableCount').textContent = data.length + ' registros';
+  
+  if (data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center py-8 text-slate-500">No hay datos para mostrar con los filtros aplicados</td></tr>';
+    return;
+  }
+  
+  var sorted = data.slice().sort((a,b) => b._dateObj - a._dateObj).slice(0, 100);
+  sorted.forEach(row => {
+    var tr = document.createElement('tr');
+    var tipoBadge = row['TIPO DE GASTOS']?.includes('Egreso') ? 'badge-egreso' : row['TIPO DE GASTOS']?.includes('Ingreso') ? 'badge-ingreso' : 'badge-ajuste';
+    tr.innerHTML = 
+      '<td class="font-medium">' + (row['FECHA'] || '-') + '</td>' +
+      '<td>' + (row['EMPRESA'] || '-') + '</td>' +
+      '<td><span class="badge ' + tipoBadge + '">' + (row['TIPO CUENTA'] || '-') + '</span></td>' +
+      '<td>' + (row['TIPO DE GASTOS'] || '-') + '</td>' +
+      '<td>' + (row['CATEGORIA'] || '-') + '</td>' +
+      '<td class="font-mono text-xs">' + (row['ASIENTO'] || '-') + '</td>' +
+      '<td class="max-w-xs truncate" title="' + (row['DESCRIPCION'] || '') + '">' + (row['DESCRIPCION'] || '-') + '</td>' +
+      '<td class="text-right text-slate-600">' + formatterUSD.format(row['MONTO'] || 0) + '</td>' +
+      '<td class="text-right font-semibold">' + formatterUSD.format(row['TOTAL $'] || 0) + '</td>' +
+      '<td class="text-right font-bold text-primary">' + formatterUSD.format(row['$  IMPLICITA'] || 0) + '</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+// ============================================
+// GRÁFICOS
+// ============================================
+function createBarChart(data) {
+  var ctx = document.getElementById('barChart');
+  if (!ctx) return;
+  if (window.chartInstances.bar) window.chartInstances.bar.destroy();
+  
+  var labels = data.map(d => d.label);
+  var values = data.map(d => d.total);
+  var implicit = data.map(d => d.implicita);
+  
+  window.chartInstances.bar = new Chart(ctx.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'Total $', data: values, backgroundColor: '#D32F2F', borderRadius: 4 },
+        { label: '$ Implícita', data: implicit, backgroundColor: '#fbbf24', borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { 
+        legend: { position: 'top', labels: { usePointStyle: true } }, 
+        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + formatterUSD.format(ctx.parsed.y) } } 
+      },
+      scales: { 
+        x: { grid: { display: false } }, 
+        y: { beginAtZero: true, ticks: { callback: v => '$' + (v/1000).toFixed(1) + 'k' } } 
+      }
+    }
+  });
+}
+
+function createPieChart(data, chartId, legendId, colors) {
+  var ctx = document.getElementById(chartId);
+  if (!ctx) return;
+  if (window.chartInstances[chartId]) window.chartInstances[chartId].destroy();
+  
+  var labels = data.map(d => d.name);
+  var values = data.map(d => d.value);
+  var bgColors = data.map((d,i) => colors[i % colors.length]);
+  
+  if (legendId) {
+    document.getElementById(legendId).innerHTML = data.map((d,i) => 
+      '<div class="flex items-center text-xs"><div class="w-3 h-3 rounded-full mr-2" style="background:' + bgColors[i] + '"></div>' + d.name + '</div>'
+    ).join('');
+  }
+  
+  window.chartInstances[chartId] = new Chart(ctx.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{ data: values, backgroundColor: bgColors, borderWidth: 0, spacing: 4, cutout: '65%' }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { 
+        legend: { display: false }, 
+        tooltip: { 
+          callbacks: { 
+            label: ctx => { 
+              var total = ctx.dataset.data.reduce((a,b) => a+b, 0); 
+              var pct = total > 0 ? ((ctx.parsed/total)*100).toFixed(1) : 0; 
+              return ctx.label + ': ' + formatterUSD.format(ctx.parsed) + ' (' + pct + '%)'; 
+            } 
+          } 
+        } 
+      }
+    }
+  });
+}
+
+function createCompanyChart(data) {
+  var ctx = document.getElementById('companyChart');
+  if (!ctx) return;
+  if (window.chartInstances.companyChart) window.chartInstances.companyChart.destroy();
+  
+  var labels = data.map(d => d.name);
+  var values = data.map(d => d.value);
+  
+  window.chartInstances.companyChart = new Chart(ctx.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{ label: 'Gastos $', data: values, backgroundColor: '#0f172a', borderRadius: 4 }]
+    },
+    options: {
+      indexAxis: 'y', 
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { 
+        x: { beginAtZero: true, ticks: { callback: v => '$' + (v/1000).toFixed(1) + 'k' } }, 
+        y: { grid: { display: false } } 
+      }
+    }
+  });
+}
+
+// ============================================
+// RENDERIZADO PRINCIPAL
+// ============================================
+function renderDashboard() {
+  var filtered = getFilteredData();
+  var aggregated = aggregateData(filtered);
+  var kpis = calculateKPIs(filtered);
+  
+  updateKPIs(kpis);
+  renderTable(filtered);
+  
+  if (aggregated.byMonth.length > 0) { 
+    createBarChart(aggregated.byMonth); 
+    document.getElementById('chartPeriodLabel').textContent = aggregated.byMonth[0].label + ' → ' + aggregated.byMonth[aggregated.byMonth.length-1].label; 
+  }
+  
+  var pieColors = ['#D32F2F', '#0f172a', '#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#6366f1'];
+  if (aggregated.byCategory.length > 0) createPieChart(aggregated.byCategory, 'pieChart', 'pieLegend', pieColors);
+  if (aggregated.byType.length > 0) createPieChart(aggregated.byType, 'doughnutChart', 'doughnutLegend', ['#0f172a', '#64748b', '#94a3b8', '#cbd5e1']);
+  if (aggregated.byCompany.length > 0) createCompanyChart(aggregated.byCompany);
+  
+  document.getElementById('debugInfo').innerHTML = 
+    '<p>📊 Registros cargados: <strong>' + rawData.length + '</strong></p>' +
+    '<p>🔍 Registros filtrados: <strong>' + filtered.length + '</strong></p>' +
+    '<p>📅 Rango: ' + (window.filters.dateStart || 'Inicio') + ' → ' + (window.filters.dateEnd || 'Fin') + '</p>';
+}
+
+// ============================================
+// EVENT LISTENERS
+// ============================================
+function setupEventListeners() {
+  document.getElementById('companyFilter').addEventListener('change', e => { 
+    window.filters.company = e.target.value; 
+    renderDashboard(); 
+  });
+  
+  document.getElementById('expenseTypeFilter').addEventListener('change', e => { 
+    window.filters.expenseType = e.target.value; 
+    renderDashboard(); 
+  });
+  
+  // ✅ EVENTO PARA CATEGORÍA - Actualiza asientos disponibles
+  document.getElementById('categoryFilter').addEventListener('change', e => { 
+    window.filters.category = e.target.value; 
+    updateAsientoOptions(window.filters.category); // Actualizar asientos según categoría
+    renderDashboard(); 
+  });
+  
+  document.getElementById('asientoFilter').addEventListener('change', e => { 
+    window.filters.asiento = e.target.value; 
+    renderDashboard(); 
+  });
+  
+  document.getElementById('btnApplyDateFilter').addEventListener('click', () => { 
+    window.filters.dateStart = document.getElementById('dateStart').value || null; 
+    window.filters.dateEnd = document.getElementById('dateEnd').value || null; 
+    document.getElementById('dateFilterHint').classList.toggle('hidden', !window.filters.dateStart && !window.filters.dateEnd); 
+    renderDashboard(); 
+  });
+  
+  document.getElementById('btnClearFilters').addEventListener('click', () => { 
+    window.filters = { company: 'ALL', expenseType: 'ALL', category: 'ALL', asiento: 'ALL', dateStart: null, dateEnd: null }; 
+    document.getElementById('companyFilter').value = 'ALL'; 
+    document.getElementById('expenseTypeFilter').value = 'ALL'; 
+    document.getElementById('categoryFilter').value = 'ALL'; 
+    document.getElementById('asientoFilter').value = 'ALL';
+    document.getElementById('dateStart').value = ''; 
+    document.getElementById('dateEnd').value = ''; 
+    document.getElementById('dateFilterHint').classList.add('hidden'); 
+    updateAsientoOptions('ALL'); // Restaurar todos los asientos
+    renderDashboard(); 
+  });
+}
+
+// ============================================
+// CARGA DE DATOS
+// ============================================
+async function loadData() {
+  var statusEl = document.getElementById('connectionStatus');
+  try {
+    statusEl.textContent = '🔄 Cargando datos...';
+    var response = await fetch(window.DASHBOARD_CONFIG.SHEET_URL);
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    var csvText = await response.text();
+    rawData = parseCSV(csvText);
+    
+    if (rawData.length === 0) throw new Error('Sin datos válidos');
+    
+    populateFilterOptions();
+    setupEventListeners();
+    
+    statusEl.textContent = '✅ Actualizado: ' + new Date().toLocaleTimeString('es-VE');
+    statusEl.className = 'text-center text-sm text-emerald-600';
+    document.getElementById('dataStatus').textContent = 'Datos actualizados';
+    
+    renderDashboard();
+  } catch (error) {
+    console.error('❌ Error:', error);
+    statusEl.textContent = '⚠️ Error: ' + error.message;
+    statusEl.className = 'text-center text-sm text-amber-600';
+    document.getElementById('debugInfo').innerHTML = '<p class="text-red-600">Error: ' + error.message + '</p>';
+  }
+}
+
+// ============================================
+// INICIALIZACIÓN
+// ============================================
+if (document.readyState === 'loading') { 
+  document.addEventListener('DOMContentLoaded', loadData); 
+} else { 
+  loadData(); 
+}
+</script>
