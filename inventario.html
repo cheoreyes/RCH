@@ -28,7 +28,7 @@
         .kpi-title { font-size: 0.75rem; text-transform: uppercase; font-weight: 600; margin-bottom: 5px; }
         .kpi-value { font-size: 1.5rem; font-weight: 700; }
         .kpi-sub { font-size: 0.7rem; color: #6b7280; margin-top: 5px; }
-        
+
         .border-red { border-left-color: #ef4444; } 
         .border-blue { border-left-color: #3b82f6; }
         .border-dark { border-left-color: #1f2937; } 
@@ -87,7 +87,7 @@
                     </select>
                 </div>
                 <div class="col-span-1">
-                    <label class="block text-xs font-bold text-gray-500 mb-1">Filtrar por Tienda (Stock &gt; 0)</label>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">Filtrar por Tienda</label>
                     <select id="filterStore" class="input-field">
                         <option value="">Todas las Tiendas</option>
                         <option value="AV">Tienda AV (Aviadores)</option>
@@ -206,7 +206,7 @@
 
     <script>
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxv4SMVVQROXRvoBsRYHWZRJBCZNsfAstbhJpUmqGADk_Mjd9PLBBsOv6TxWrvOQxVZ/exec';
-        
+
         let inventoryData = [], purchasesData = [], transfersData = [], ordersData = [];
         let movementStats = {}; 
 
@@ -220,9 +220,54 @@
             return isNaN(num) ? 0 : num;
         }
 
+        // Función para parsear fechas en diferentes formatos
+        function parseDate(dateStr) {
+            if (!dateStr) return null;
+            
+            // Si ya es un objeto Date
+            if (dateStr instanceof Date) return dateStr;
+            
+            // Si es un string
+            let str = dateStr.toString().trim();
+            
+            // Intentar con formato DD/MM/YYYY
+            let parts = str.split('/');
+            if (parts.length === 3) {
+                let day = parseInt(parts[0]);
+                let month = parseInt(parts[1]) - 1;
+                let year = parseInt(parts[2]);
+                let date = new Date(year, month, day);
+                if (!isNaN(date.getTime())) return date;
+            }
+            
+            // Intentar con formato YYYY-MM-DD
+            parts = str.split('-');
+            if (parts.length === 3) {
+                let year = parseInt(parts[0]);
+                let month = parseInt(parts[1]) - 1;
+                let day = parseInt(parts[2]);
+                let date = new Date(year, month, day);
+                if (!isNaN(date.getTime())) return date;
+            }
+            
+            // Intentar con formato nativo de JS
+            let date = new Date(str);
+            if (!isNaN(date.getTime())) return date;
+            
+            return null;
+        }
+
+        // Función para comparar fechas (solo fecha, sin hora)
+        function compareDates(date1, date2) {
+            if (!date1 || !date2) return false;
+            const d1 = new Date(date1.getFullYear(), date1.getMonth(), date1.getDate());
+            const d2 = new Date(date2.getFullYear(), date2.getMonth(), date2.getDate());
+            return d1.getTime() === d2.getTime();
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             loadData();
-            
+
             document.getElementById('searchInput').addEventListener('input', applyFilters);
             document.getElementById('filterProvider').addEventListener('change', applyFilters);
             document.getElementById('filterStore').addEventListener('change', applyFilters);
@@ -235,12 +280,12 @@
             try {
                 const response = await fetch(SCRIPT_URL);
                 if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-                
+
                 const result = await response.json();
-                
+
                 const rawInventory = result.inventario || result.INVENTARIO || [];
                 inventoryData = rawInventory.filter(row => (row.CODIGO || row.Código));
-                
+
                 inventoryData.forEach(item => {
                     item.CODIGO = item.CODIGO || item.Código || '';
                     item.ARTICULO = item.ARTICULO || item.Artículo || '';
@@ -257,10 +302,13 @@
                 transfersData = result.traslados || result.TRASLADOS || [];
                 ordersData = result.pedidos || result.PEDIDOS || result.ventas || result.VENTAS || [];
 
+                // Debug: Ver las ventas del producto
+                console.log('Ventas del producto 61DE11-04018:', ordersData.filter(o => (o.CODIGO || o.Código) === '61DE11-04018'));
+
                 preprocessMovementData(); 
                 populateDropdowns();
                 applyFilters(); 
-                
+
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('last-update').innerText = new Date().toLocaleDateString('es-VE') + " " + new Date().toLocaleTimeString('es-VE', {hour: '2-digit', minute:'2-digit'});
             } catch (error) {
@@ -306,7 +354,7 @@
         function populateDropdowns() {
             const providers = [...new Set(inventoryData.map(item => item.PROVEEDOR).filter(p => p))].sort();
             const providerSelect = document.getElementById('filterProvider');
-            
+
             providerSelect.innerHTML = '<option value="">Todos</option>';
             providers.forEach(p => { 
                 const option = document.createElement('option'); 
@@ -336,9 +384,6 @@
                 const matchProvider = provider ? item.PROVEEDOR === provider : true;
 
                 let matchStore = true;
-                if (store === 'AV') matchStore = (parseNumber(item.CANTIDADAV) > 0);
-                if (store === 'SJ') matchStore = (parseNumber(item.CANTIDADSJ) > 0);
-                if (store === 'BQ') matchStore = (parseNumber(item.CANTIDADBQ) > 0);
 
                 let matchZeroStock = true;
                 if (showZeroStock) {
@@ -353,14 +398,25 @@
                     if (!stats || !stats.movements || stats.movements.length === 0) {
                         matchDates = false;
                     } else {
+                        const fromDate = dateFrom ? parseDate(dateFrom) : null;
+                        const toDate = dateTo ? parseDate(dateTo) : null;
+                        
                         matchDates = stats.movements.some(mov => {
-                            const movDate = new Date(mov.date);
-                            const from = dateFrom ? new Date(dateFrom) : null;
-                            const to = dateTo ? new Date(dateTo) : null;
-                            let inRange = true;
-                            if (from) inRange = inRange && (movDate >= from);
-                            if (to) inRange = inRange && (movDate <= to);
-                            return inRange;
+                            const movDate = parseDate(mov.date);
+                            if (!movDate) return false;
+                            
+                            // Comparar solo la fecha (sin hora)
+                            const movDateOnly = new Date(movDate.getFullYear(), movDate.getMonth(), movDate.getDate());
+                            
+                            if (fromDate) {
+                                const fromDateOnly = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
+                                if (movDateOnly < fromDateOnly) return false;
+                            }
+                            if (toDate) {
+                                const toDateOnly = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate());
+                                if (movDateOnly > toDateOnly) return false;
+                            }
+                            return true;
                         });
                     }
                 }
@@ -369,10 +425,131 @@
             });
         }
 
-        // LÓGICA DE CORRECCIÓN CON FILTRADO POR TIENDA PARA COMPRAS Y VENTAS PERIODO
+        // Función para obtener el mapeo de tiendas
+        function getStoreMapping(filterStore) {
+            const mapping = {
+                'AV': { compras: 'AV', ventas: 'PAV' },
+                'SJ': { compras: 'SJ', ventas: 'SJ' },
+                'BQ': { compras: 'BQ', ventas: 'BQ' }
+            };
+            return mapping[filterStore] || null;
+        }
+
+        // Función para obtener el valor de la tienda de un registro de compra
+        function getPurchaseStore(purchase) {
+            const store = purchase.TIEN || purchase.TIENDA || purchase.STORE || '';
+            return store.toString().toUpperCase().trim();
+        }
+
+        // Función para obtener el valor de la tienda de un registro de venta
+        function getSaleStore(sale) {
+            const store = sale.TIENDA || sale.TIEN || sale.STORE || '';
+            return store.toString().toUpperCase().trim();
+        }
+
+        // Función CORREGIDA para verificar si una fecha está en el rango
+        function isDateInRange(dateStr, fromDate, toDate) {
+            if (!dateStr) return false;
+            
+            const movDate = parseDate(dateStr);
+            if (!movDate) return false;
+            
+            // Crear fecha solo con día, mes, año (sin hora)
+            const movDateOnly = new Date(movDate.getFullYear(), movDate.getMonth(), movDate.getDate());
+            
+            if (fromDate) {
+                const fromDateOnly = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
+                if (movDateOnly < fromDateOnly) {
+                    console.log(`Fecha ${movDateOnly.toISOString().split('T')[0]} es menor que ${fromDateOnly.toISOString().split('T')[0]}`);
+                    return false;
+                }
+            }
+            if (toDate) {
+                const toDateOnly = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate());
+                if (movDateOnly > toDateOnly) {
+                    console.log(`Fecha ${movDateOnly.toISOString().split('T')[0]} es mayor que ${toDateOnly.toISOString().split('T')[0]}`);
+                    return false;
+                }
+            }
+            
+            console.log(`Fecha ${movDateOnly.toISOString().split('T')[0]} está en el rango`);
+            return true;
+        }
+
+        // Función para obtener las compras filtradas por tienda y fechas para un producto específico
+        function getFilteredPurchases(codigo, selectedStore, fromDate, toDate) {
+            const result = purchasesData.filter(p => {
+                const cod = p.CODIGO || p.Código;
+                if (cod !== codigo) return false;
+                
+                // Filtro por tienda
+                if (selectedStore) {
+                    const storeMap = getStoreMapping(selectedStore);
+                    if (storeMap) {
+                        const pStore = getPurchaseStore(p);
+                        if (pStore !== storeMap.compras) return false;
+                    }
+                }
+                
+                // Filtro por fechas
+                if (fromDate || toDate) {
+                    const fecha = p.FECHA || p.Fecha;
+                    if (!fecha) return false;
+                    return isDateInRange(fecha, fromDate, toDate);
+                }
+                
+                return true;
+            });
+            
+            return result;
+        }
+
+        // Función CORREGIDA para obtener las ventas filtradas por tienda y fechas para un producto específico
+        function getFilteredSales(codigo, selectedStore, fromDate, toDate) {
+            console.log(`=== getFilteredSales para ${codigo} ===`);
+            console.log('fromDate:', fromDate);
+            console.log('toDate:', toDate);
+            
+            const result = ordersData.filter(o => {
+                const cod = o.CODIGO || o.Código;
+                if (cod !== codigo) return false;
+                
+                // Filtro por tienda
+                if (selectedStore) {
+                    const storeMap = getStoreMapping(selectedStore);
+                    if (storeMap) {
+                        const oStore = getSaleStore(o);
+                        if (oStore !== storeMap.ventas) return false;
+                    }
+                }
+                
+                // Filtro por fechas - CORREGIDO
+                if (fromDate || toDate) {
+                    const fecha = o.FECHA || o.Fecha;
+                    console.log('Fecha de venta:', fecha);
+                    if (!fecha) {
+                        console.log('Venta sin fecha, excluida');
+                        return false;
+                    }
+                    const inRange = isDateInRange(fecha, fromDate, toDate);
+                    console.log('¿Está en rango?', inRange);
+                    return inRange;
+                }
+                
+                return true;
+            });
+            
+            console.log('Ventas filtradas encontradas:', result.length);
+            return result;
+        }
+
         function calculateFilteredKPIs(data) {
             let totalVal = 0, totalUnits = 0, stockAV = 0, valAV = 0, stockSJ = 0, valSJ = 0, stockBQ = 0, valBQ = 0;
             const selectedStore = document.getElementById('filterStore').value;
+            const dateFrom = document.getElementById('filterDateFrom').value;
+            const dateTo = document.getElementById('filterDateTo').value;
+            const fromDate = dateFrom ? parseDate(dateFrom) : null;
+            const toDate = dateTo ? parseDate(dateTo) : null;
 
             data.forEach(item => {
                 const qtyAV = parseNumber(item.CANTIDADAV);
@@ -397,31 +574,27 @@
             document.getElementById('kpi-total-units').innerText = unitFormatter.format(totalUnits);
 
             const filteredCodes = new Set(data.map(item => item.CODIGO));
-            const dateFrom = document.getElementById('filterDateFrom').value;
-            const dateTo = document.getElementById('filterDateTo').value;
-            const fromDate = dateFrom ? new Date(dateFrom) : null;
-            const toDate = dateTo ? new Date(dateTo) : null;
 
-            // Función para verificar si la tienda del registro coincide con la del selector
-            function matchStoreMovement(movStore, filterStore) {
-                if (!filterStore) return true; 
-                if (!movStore) return false;
-                const ms = movStore.toString().toUpperCase().trim();
-                const fs = filterStore.toUpperCase().trim();
-                return ms === fs || ms.includes(fs); 
-            }
-
-            // Filtrar Compras por artículo, fechas y tienda (Columna TIEN o TIENDA)
+            // Filtrar Compras por tienda y fechas
             let filteredPurchases = purchasesData.filter(p => {
                 const cod = p.CODIGO || p.Código;
                 if (!filteredCodes.has(cod)) return false;
-                if (!matchStoreMovement(p.TIEN || p.TIENDA, selectedStore)) return false;
-                if (!(p.FECHA || p.Fecha)) return true;
-                const purchaseDate = new Date(p.FECHA || p.Fecha);
-                let inRange = true;
-                if (fromDate) inRange = inRange && (purchaseDate >= fromDate);
-                if (toDate) inRange = inRange && (purchaseDate <= toDate);
-                return inRange;
+                
+                if (selectedStore) {
+                    const storeMap = getStoreMapping(selectedStore);
+                    if (storeMap) {
+                        const pStore = getPurchaseStore(p);
+                        if (pStore !== storeMap.compras) return false;
+                    }
+                }
+                
+                if (fromDate || toDate) {
+                    const fecha = p.FECHA || p.Fecha;
+                    if (!fecha) return false;
+                    return isDateInRange(fecha, fromDate, toDate);
+                }
+                
+                return true;
             });
 
             let totalPurchases = filteredPurchases.reduce((sum, p) => {
@@ -429,17 +602,26 @@
                 return sum + parseNumber(val);
             }, 0);
 
-            // Filtrar Ventas por artículo, fechas y tienda (Columna TIEN o TIENDA)
+            // Filtrar Ventas por tienda y fechas
             let filteredOrders = ordersData.filter(o => {
                 const cod = o.CODIGO || o.Código;
                 if (!filteredCodes.has(cod)) return false;
-                if (!matchStoreMovement(o.TIEN || o.TIENDA, selectedStore)) return false;
-                if (!(o.FECHA || o.Fecha)) return true;
-                const orderDate = new Date(o.FECHA || o.Fecha);
-                let inRange = true;
-                if (fromDate) inRange = inRange && (orderDate >= fromDate);
-                if (toDate) inRange = inRange && (orderDate <= toDate);
-                return inRange;
+                
+                if (selectedStore) {
+                    const storeMap = getStoreMapping(selectedStore);
+                    if (storeMap) {
+                        const oStore = getSaleStore(o);
+                        if (oStore !== storeMap.ventas) return false;
+                    }
+                }
+                
+                if (fromDate || toDate) {
+                    const fecha = o.FECHA || o.Fecha;
+                    if (!fecha) return false;
+                    return isDateInRange(fecha, fromDate, toDate);
+                }
+                
+                return true;
             });
 
             let totalSalesAmount = filteredOrders.reduce((sum, o) => {
@@ -454,7 +636,7 @@
 
             document.getElementById('kpi-compras').innerText = currencyFormatter.format(totalPurchases);
             document.getElementById('kpi-ventas').innerText = currencyFormatter.format(totalSalesAmount);
-            
+
             document.getElementById('stock-av').innerText = unitFormatter.format(stockAV) + " und";
             document.getElementById('val-av').innerText = currencyFormatter.format(valAV);
             document.getElementById('stock-sj').innerText = unitFormatter.format(stockSJ) + " und";
@@ -466,11 +648,13 @@
         function renderTable(data) {
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
-            
+
             const selectedStore = document.getElementById('filterStore').value;
             const showZeroStock = document.getElementById('toggleZeroStock').checked;
             const dateFrom = document.getElementById('filterDateFrom').value;
             const dateTo = document.getElementById('filterDateTo').value;
+            const fromDate = dateFrom ? parseDate(dateFrom) : null;
+            const toDate = dateTo ? parseDate(dateTo) : null;
 
             let filterInfo = [];
             if(showZeroStock) filterInfo.push("Sin Stock");
@@ -486,22 +670,35 @@
             displayData.forEach(item => {
                 const qtyAV = parseNumber(item.CANTIDADAV), qtySJ = parseNumber(item.CANTIDADSJ), qtyBQ = parseNumber(item.CANTIDADBQ);
                 const cost = parseNumber(item.COSTOREPOSICION), price = parseNumber(item.PRECIO);
-                
+
                 let dynamicTotalQty = qtyAV + qtySJ + qtyBQ;
                 if (selectedStore === 'AV') dynamicTotalQty = qtyAV;
                 else if (selectedStore === 'SJ') dynamicTotalQty = qtySJ;
                 else if (selectedStore === 'BQ') dynamicTotalQty = qtyBQ;
 
                 const dynamicTotalVal = dynamicTotalQty * cost;
-                const stats = movementStats[item.CODIGO] || { bought: 0, sold: 0 };
                 
+                const filteredPurchases = getFilteredPurchases(item.CODIGO, selectedStore, fromDate, toDate);
+                let boughtQty = 0;
+                filteredPurchases.forEach(p => {
+                    const qty = parseNumber(p.CANTIDAD || p.Cantidad);
+                    boughtQty += qty;
+                });
+                
+                const filteredSales = getFilteredSales(item.CODIGO, selectedStore, fromDate, toDate);
+                let soldQty = 0;
+                filteredSales.forEach(o => {
+                    const qty = parseNumber(o.CANTIDAD || o.Cantidad);
+                    soldQty += qty;
+                });
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td class="font-mono text-xs text-gray-600 font-bold">${item.CODIGO}</td>
                     <td class="font-medium text-gray-800">${item.ARTICULO}</td>
                     <td class="text-xs text-gray-600">${item.PROVEEDOR || '-'}</td>
-                    <td class="text-center text-blue-700 font-bold bg-blue-50/50">${stats.bought > 0 ? unitFormatter.format(stats.bought) : '-'}</td>
-                    <td class="text-center text-red-700 font-bold bg-red-50/50">${stats.sold > 0 ? unitFormatter.format(stats.sold) : '-'}</td>
+                    <td class="text-center text-blue-700 font-bold bg-blue-50/50">${boughtQty > 0 ? unitFormatter.format(boughtQty) : '-'}</td>
+                    <td class="text-center text-red-700 font-bold bg-red-50/50">${soldQty > 0 ? unitFormatter.format(soldQty) : '-'}</td>
                     <td class="text-right text-sm text-gray-600 num-format">${currencyFormatter.format(cost)}</td>
                     <td class="text-right text-sm font-bold text-green-700 num-format">${currencyFormatter.format(price)}</td>
                     <td class="text-center ${qtyAV > 0 ? 'bg-yellow-50 font-bold text-yellow-700' : 'text-gray-300'}">${qtyAV}</td>
@@ -533,6 +730,10 @@
             }
 
             const selectedStore = document.getElementById('filterStore').value;
+            const dateFrom = document.getElementById('filterDateFrom').value;
+            const dateTo = document.getElementById('filterDateTo').value;
+            const fromDate = dateFrom ? parseDate(dateFrom) : null;
+            const toDate = dateTo ? parseDate(dateTo) : null;
 
             const excelRows = dataToExport.map(item => {
                 const qtyAV = parseNumber(item.CANTIDADAV);
@@ -540,8 +741,19 @@
                 const qtyBQ = parseNumber(item.CANTIDADBQ);
                 const cost = parseNumber(item.COSTOREPOSICION);
                 const price = parseNumber(item.PRECIO);
-                const stats = movementStats[item.CODIGO] || { bought: 0, sold: 0 };
+
+                const filteredPurchases = getFilteredPurchases(item.CODIGO, selectedStore, fromDate, toDate);
+                let boughtQty = 0;
+                filteredPurchases.forEach(p => {
+                    boughtQty += parseNumber(p.CANTIDAD || p.Cantidad);
+                });
                 
+                const filteredSales = getFilteredSales(item.CODIGO, selectedStore, fromDate, toDate);
+                let soldQty = 0;
+                filteredSales.forEach(o => {
+                    soldQty += parseNumber(o.CANTIDAD || o.Cantidad);
+                });
+
                 let dynamicQty = qtyAV + qtySJ + qtyBQ;
                 if (selectedStore === 'AV') dynamicQty = qtyAV;
                 else if (selectedStore === 'SJ') dynamicQty = qtySJ;
@@ -552,8 +764,8 @@
                     'Artículo': item.ARTICULO,
                     'Aplicación': item.APLICACION || '',
                     'Proveedor': item.PROVEEDOR || '',
-                    'Compradas': stats.bought,
-                    'Vendidas': stats.sold,
+                    'Compradas': boughtQty,
+                    'Vendidas': soldQty,
                     'Costo Rep.': cost,
                     'Precio': price,
                     'Stock AV': qtyAV,
@@ -573,7 +785,7 @@
 
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Inventario_Filtrado");
-            
+
             const dateStr = new Date().toISOString().slice(0,10);
             XLSX.writeFile(wb, `Inventario_VZLA_Reporte_${dateStr}.xlsx`);
         }
