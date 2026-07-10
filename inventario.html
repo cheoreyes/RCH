@@ -46,6 +46,8 @@
         .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #dc2626; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .num-format { font-family: 'Courier New', Courier, monospace; }
+        
+        .fecha-label { font-size: 0.7rem; color: #6b7280; font-weight: normal; }
     </style>
 
 
@@ -107,7 +109,7 @@
                     <input type="date" id="filterDateFrom" class="input-field">
                 </div>
                 <div class="col-span-1">
-                    <label class="block text-xs font-bold text-gray-500 mb-1">Movimientos Hasta</label>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">Movimientos Hasta (Corte)</label>
                     <input type="date" id="filterDateTo" class="input-field">
                 </div>
                 <div class="col-span-2 flex items-center gap-3">
@@ -118,6 +120,7 @@
                         </div>
                         <span class="ml-3 text-sm font-medium text-gray-700">Ver Solo Sin Stock (Con Movimiento)</span>
                     </label>
+                    <span class="text-xs text-gray-400 ml-2" id="fechaIndicator"></span>
                 </div>
             </div>
         </section>
@@ -125,14 +128,14 @@
         <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
             <div class="kpi-card border-red">
                 <div>
-                    <div class="kpi-title text-red-600">$ Valorización Total</div>
+                    <div class="kpi-title text-red-600">$ Valorización Total <span class="fecha-label" id="label-total-val">(Actual)</span></div>
                     <div class="kpi-value text-gray-800" id="kpi-total-val">$ 0,00</div>
                 </div>
                 <div class="kpi-sub">Suma (Stock * Costo Reposición)</div>
             </div>
             <div class="kpi-card border-blue">
                 <div>
-                    <div class="kpi-title text-blue-600">Total Unidades</div>
+                    <div class="kpi-title text-blue-600">Total Unidades <span class="fecha-label" id="label-total-units">(Actual)</span></div>
                     <div class="kpi-value text-gray-800" id="kpi-total-units">0</div>
                 </div>
                 <div class="kpi-sub">Stock Combinado</div>
@@ -207,7 +210,7 @@
     <script>
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxv4SMVVQROXRvoBsRYHWZRJBCZNsfAstbhJpUmqGADk_Mjd9PLBBsOv6TxWrvOQxVZ/exec';
 
-        let inventoryData = [], purchasesData = [], transfersData = [], ordersData = [];
+        let inventoryData = [], purchasesData = [], ordersData = [];
         let movementStats = {}; 
 
         const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
@@ -220,17 +223,12 @@
             return isNaN(num) ? 0 : num;
         }
 
-        // Función para parsear fechas en diferentes formatos
         function parseDate(dateStr) {
             if (!dateStr) return null;
-            
-            // Si ya es un objeto Date
             if (dateStr instanceof Date) return dateStr;
             
-            // Si es un string
             let str = dateStr.toString().trim();
             
-            // Intentar con formato DD/MM/YYYY
             let parts = str.split('/');
             if (parts.length === 3) {
                 let day = parseInt(parts[0]);
@@ -240,7 +238,6 @@
                 if (!isNaN(date.getTime())) return date;
             }
             
-            // Intentar con formato YYYY-MM-DD
             parts = str.split('-');
             if (parts.length === 3) {
                 let year = parseInt(parts[0]);
@@ -250,19 +247,29 @@
                 if (!isNaN(date.getTime())) return date;
             }
             
-            // Intentar con formato nativo de JS
             let date = new Date(str);
             if (!isNaN(date.getTime())) return date;
             
             return null;
         }
 
-        // Función para comparar fechas (solo fecha, sin hora)
-        function compareDates(date1, date2) {
-            if (!date1 || !date2) return false;
-            const d1 = new Date(date1.getFullYear(), date1.getMonth(), date1.getDate());
-            const d2 = new Date(date2.getFullYear(), date2.getMonth(), date2.getDate());
-            return d1.getTime() === d2.getTime();
+        function isDateInRange(dateStr, fromDate, toDate) {
+            if (!dateStr) return false;
+            
+            const movDate = parseDate(dateStr);
+            if (!movDate) return false;
+            
+            const movDateOnly = new Date(movDate.getFullYear(), movDate.getMonth(), movDate.getDate());
+            
+            if (fromDate) {
+                const fromDateOnly = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
+                if (movDateOnly < fromDateOnly) return false;
+            }
+            if (toDate) {
+                const toDateOnly = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate());
+                if (movDateOnly > toDateOnly) return false;
+            }
+            return true;
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -299,11 +306,7 @@
                 });
 
                 purchasesData = result.compras || result.COMPRAS || [];
-                transfersData = result.traslados || result.TRASLADOS || [];
                 ordersData = result.pedidos || result.PEDIDOS || result.ventas || result.VENTAS || [];
-
-                // Debug: Ver las ventas del producto
-                console.log('Ventas del producto 61DE11-04018:', ordersData.filter(o => (o.CODIGO || o.Código) === '61DE11-04018'));
 
                 preprocessMovementData(); 
                 populateDropdowns();
@@ -368,16 +371,35 @@
             const filteredData = getCurrentFilteredData();
             calculateFilteredKPIs(filteredData); 
             renderTable(filteredData);
+            
+            const dateFrom = document.getElementById('filterDateFrom').value;
+            const dateTo = document.getElementById('filterDateTo').value;
+            
+            let fechaTexto = '';
+            if (dateFrom && dateTo) {
+                const desde = new Date(dateFrom);
+                const hasta = new Date(dateTo);
+                fechaTexto = `📅 ${desde.toLocaleDateString('es-VE')} → ${hasta.toLocaleDateString('es-VE')}`;
+            } else if (dateTo) {
+                const fecha = new Date(dateTo);
+                fechaTexto = `📅 Corte: ${fecha.toLocaleDateString('es-VE')}`;
+                document.getElementById('label-total-val').innerHTML = `<span class="fecha-label">(al ${fecha.toLocaleDateString('es-VE')})</span>`;
+                document.getElementById('label-total-units').innerHTML = `<span class="fecha-label">(al ${fecha.toLocaleDateString('es-VE')})</span>`;
+            } else {
+                document.getElementById('label-total-val').innerHTML = `<span class="fecha-label">(Actual)</span>`;
+                document.getElementById('label-total-units').innerHTML = `<span class="fecha-label">(Actual)</span>`;
+            }
+            document.getElementById('fechaIndicator').innerText = fechaTexto;
         }
 
         function getCurrentFilteredData() {
             const search = document.getElementById('searchInput').value.toLowerCase();
             const provider = document.getElementById('filterProvider').value;
             const store = document.getElementById('filterStore').value;
-            const dateFrom = document.getElementById('filterDateFrom').value;
-            const dateTo = document.getElementById('filterDateTo').value;
             const showZeroStock = document.getElementById('toggleZeroStock').checked;
 
+            // El filtro "Movimientos Desde" NO afecta qué productos se muestran
+            // Solo afecta a las compras y ventas del período
             return inventoryData.filter(item => {
                 const concat = (item.CONCATENAR || `${item.ARTICULO} ${item.CODIGO} ${item.APLICACION}`).toLowerCase();
                 const matchSearch = concat.includes(search);
@@ -392,40 +414,10 @@
                     matchZeroStock = (totalStock === 0 && (stats.bought > 0 || stats.sold > 0));
                 }
 
-                let matchDates = true;
-                if (dateFrom || dateTo) {
-                    const stats = movementStats[item.CODIGO];
-                    if (!stats || !stats.movements || stats.movements.length === 0) {
-                        matchDates = false;
-                    } else {
-                        const fromDate = dateFrom ? parseDate(dateFrom) : null;
-                        const toDate = dateTo ? parseDate(dateTo) : null;
-                        
-                        matchDates = stats.movements.some(mov => {
-                            const movDate = parseDate(mov.date);
-                            if (!movDate) return false;
-                            
-                            // Comparar solo la fecha (sin hora)
-                            const movDateOnly = new Date(movDate.getFullYear(), movDate.getMonth(), movDate.getDate());
-                            
-                            if (fromDate) {
-                                const fromDateOnly = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
-                                if (movDateOnly < fromDateOnly) return false;
-                            }
-                            if (toDate) {
-                                const toDateOnly = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate());
-                                if (movDateOnly > toDateOnly) return false;
-                            }
-                            return true;
-                        });
-                    }
-                }
-
-                return matchSearch && matchProvider && matchStore && matchZeroStock && matchDates;
+                return matchSearch && matchProvider && matchStore && matchZeroStock;
             });
         }
 
-        // Función para obtener el mapeo de tiendas
         function getStoreMapping(filterStore) {
             const mapping = {
                 'AV': { compras: 'AV', ventas: 'PAV' },
@@ -435,54 +427,21 @@
             return mapping[filterStore] || null;
         }
 
-        // Función para obtener el valor de la tienda de un registro de compra
         function getPurchaseStore(purchase) {
             const store = purchase.TIEN || purchase.TIENDA || purchase.STORE || '';
             return store.toString().toUpperCase().trim();
         }
 
-        // Función para obtener el valor de la tienda de un registro de venta
         function getSaleStore(sale) {
             const store = sale.TIENDA || sale.TIEN || sale.STORE || '';
             return store.toString().toUpperCase().trim();
         }
 
-        // Función CORREGIDA para verificar si una fecha está en el rango
-        function isDateInRange(dateStr, fromDate, toDate) {
-            if (!dateStr) return false;
-            
-            const movDate = parseDate(dateStr);
-            if (!movDate) return false;
-            
-            // Crear fecha solo con día, mes, año (sin hora)
-            const movDateOnly = new Date(movDate.getFullYear(), movDate.getMonth(), movDate.getDate());
-            
-            if (fromDate) {
-                const fromDateOnly = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
-                if (movDateOnly < fromDateOnly) {
-                    console.log(`Fecha ${movDateOnly.toISOString().split('T')[0]} es menor que ${fromDateOnly.toISOString().split('T')[0]}`);
-                    return false;
-                }
-            }
-            if (toDate) {
-                const toDateOnly = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate());
-                if (movDateOnly > toDateOnly) {
-                    console.log(`Fecha ${movDateOnly.toISOString().split('T')[0]} es mayor que ${toDateOnly.toISOString().split('T')[0]}`);
-                    return false;
-                }
-            }
-            
-            console.log(`Fecha ${movDateOnly.toISOString().split('T')[0]} está en el rango`);
-            return true;
-        }
-
-        // Función para obtener las compras filtradas por tienda y fechas para un producto específico
         function getFilteredPurchases(codigo, selectedStore, fromDate, toDate) {
             const result = purchasesData.filter(p => {
                 const cod = p.CODIGO || p.Código;
                 if (cod !== codigo) return false;
                 
-                // Filtro por tienda
                 if (selectedStore) {
                     const storeMap = getStoreMapping(selectedStore);
                     if (storeMap) {
@@ -491,7 +450,6 @@
                     }
                 }
                 
-                // Filtro por fechas
                 if (fromDate || toDate) {
                     const fecha = p.FECHA || p.Fecha;
                     if (!fecha) return false;
@@ -504,17 +462,11 @@
             return result;
         }
 
-        // Función CORREGIDA para obtener las ventas filtradas por tienda y fechas para un producto específico
         function getFilteredSales(codigo, selectedStore, fromDate, toDate) {
-            console.log(`=== getFilteredSales para ${codigo} ===`);
-            console.log('fromDate:', fromDate);
-            console.log('toDate:', toDate);
-            
             const result = ordersData.filter(o => {
                 const cod = o.CODIGO || o.Código;
                 if (cod !== codigo) return false;
                 
-                // Filtro por tienda
                 if (selectedStore) {
                     const storeMap = getStoreMapping(selectedStore);
                     if (storeMap) {
@@ -523,49 +475,214 @@
                     }
                 }
                 
-                // Filtro por fechas - CORREGIDO
                 if (fromDate || toDate) {
                     const fecha = o.FECHA || o.Fecha;
-                    console.log('Fecha de venta:', fecha);
-                    if (!fecha) {
-                        console.log('Venta sin fecha, excluida');
-                        return false;
-                    }
-                    const inRange = isDateInRange(fecha, fromDate, toDate);
-                    console.log('¿Está en rango?', inRange);
-                    return inRange;
+                    if (!fecha) return false;
+                    return isDateInRange(fecha, fromDate, toDate);
                 }
                 
                 return true;
             });
             
-            console.log('Ventas filtradas encontradas:', result.length);
             return result;
         }
 
+        // ============================================================
+        // FUNCIÓN: Calcular inventario en una fecha específica
+        // ============================================================
+        function calcularInventarioEnFecha(codigo, fechaCorte, selectedStore) {
+            const inventoryItem = inventoryData.find(item => item.CODIGO === codigo);
+            if (!inventoryItem) return { av: 0, sj: 0, bq: 0, total: 0 };
+            
+            // Si no hay fecha de corte, devolver stock actual
+            if (!fechaCorte) {
+                let stockAV = parseNumber(inventoryItem.CANTIDADAV);
+                let stockSJ = parseNumber(inventoryItem.CANTIDADSJ);
+                let stockBQ = parseNumber(inventoryItem.CANTIDADBQ);
+                if (!selectedStore) {
+                    return { av: stockAV, sj: stockSJ, bq: stockBQ, total: stockAV + stockSJ + stockBQ };
+                }
+                if (selectedStore === 'AV') return { av: stockAV, sj: 0, bq: 0, total: stockAV };
+                if (selectedStore === 'SJ') return { av: 0, sj: stockSJ, bq: 0, total: stockSJ };
+                if (selectedStore === 'BQ') return { av: 0, sj: 0, bq: stockBQ, total: stockBQ };
+                return { av: 0, sj: 0, bq: 0, total: 0 };
+            }
+            
+            const toDate = parseDate(fechaCorte);
+            if (!toDate) return { av: 0, sj: 0, bq: 0, total: 0 };
+            
+            // Stock actual
+            let stockAV = parseNumber(inventoryItem.CANTIDADAV);
+            let stockSJ = parseNumber(inventoryItem.CANTIDADSJ);
+            let stockBQ = parseNumber(inventoryItem.CANTIDADBQ);
+            
+            // Si la fecha de corte es hoy o futura, devolver stock actual
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
+            if (toDate.getTime() >= hoy.getTime()) {
+                if (!selectedStore) {
+                    return { av: stockAV, sj: stockSJ, bq: stockBQ, total: stockAV + stockSJ + stockBQ };
+                }
+                if (selectedStore === 'AV') return { av: stockAV, sj: 0, bq: 0, total: stockAV };
+                if (selectedStore === 'SJ') return { av: 0, sj: stockSJ, bq: 0, total: stockSJ };
+                if (selectedStore === 'BQ') return { av: 0, sj: 0, bq: stockBQ, total: stockBQ };
+            }
+            
+            // Calcular compras totales (todos los períodos)
+            const comprasTotales = purchasesData.filter(p => {
+                const cod = p.CODIGO || p.Código;
+                if (cod !== codigo) return false;
+                if (selectedStore) {
+                    const storeMap = getStoreMapping(selectedStore);
+                    if (storeMap) {
+                        const pStore = getPurchaseStore(p);
+                        if (pStore !== storeMap.compras) return false;
+                    }
+                }
+                return true;
+            });
+            
+            const ventasTotales = ordersData.filter(o => {
+                const cod = o.CODIGO || o.Código;
+                if (cod !== codigo) return false;
+                if (selectedStore) {
+                    const storeMap = getStoreMapping(selectedStore);
+                    if (storeMap) {
+                        const oStore = getSaleStore(o);
+                        if (oStore !== storeMap.ventas) return false;
+                    }
+                }
+                return true;
+            });
+            
+            let comprasTotalAV = 0, comprasTotalSJ = 0, comprasTotalBQ = 0;
+            comprasTotales.forEach(p => {
+                const store = getPurchaseStore(p);
+                const qty = parseNumber(p.CANTIDAD || p.Cantidad);
+                if (store === 'AV') comprasTotalAV += qty;
+                else if (store === 'SJ') comprasTotalSJ += qty;
+                else if (store === 'BQ') comprasTotalBQ += qty;
+            });
+            
+            let ventasTotalAV = 0, ventasTotalSJ = 0, ventasTotalBQ = 0;
+            ventasTotales.forEach(o => {
+                const store = getSaleStore(o);
+                const qty = parseNumber(o.CANTIDAD || o.Cantidad);
+                if (store === 'PAV') ventasTotalAV += qty;
+                else if (store === 'SJ') ventasTotalSJ += qty;
+                else if (store === 'BQ') ventasTotalBQ += qty;
+            });
+            
+            // Inventario Inicial
+            let inventarioInicialAV = stockAV - comprasTotalAV + ventasTotalAV;
+            let inventarioInicialSJ = stockSJ - comprasTotalSJ + ventasTotalSJ;
+            let inventarioInicialBQ = stockBQ - comprasTotalBQ + ventasTotalBQ;
+            
+            // Calcular compras acumuladas HASTA la fecha de corte
+            const comprasHasta = purchasesData.filter(p => {
+                const cod = p.CODIGO || p.Código;
+                if (cod !== codigo) return false;
+                if (selectedStore) {
+                    const storeMap = getStoreMapping(selectedStore);
+                    if (storeMap) {
+                        const pStore = getPurchaseStore(p);
+                        if (pStore !== storeMap.compras) return false;
+                    }
+                }
+                const fecha = p.FECHA || p.Fecha;
+                if (!fecha) return false;
+                return isDateInRange(fecha, null, toDate);
+            });
+            
+            const ventasHasta = ordersData.filter(o => {
+                const cod = o.CODIGO || o.Código;
+                if (cod !== codigo) return false;
+                if (selectedStore) {
+                    const storeMap = getStoreMapping(selectedStore);
+                    if (storeMap) {
+                        const oStore = getSaleStore(o);
+                        if (oStore !== storeMap.ventas) return false;
+                    }
+                }
+                const fecha = o.FECHA || o.Fecha;
+                if (!fecha) return false;
+                return isDateInRange(fecha, null, toDate);
+            });
+            
+            let comprasAV = 0, comprasSJ = 0, comprasBQ = 0;
+            comprasHasta.forEach(p => {
+                const store = getPurchaseStore(p);
+                const qty = parseNumber(p.CANTIDAD || p.Cantidad);
+                if (store === 'AV') comprasAV += qty;
+                else if (store === 'SJ') comprasSJ += qty;
+                else if (store === 'BQ') comprasBQ += qty;
+            });
+            
+            let ventasAV = 0, ventasSJ = 0, ventasBQ = 0;
+            ventasHasta.forEach(o => {
+                const store = getSaleStore(o);
+                const qty = parseNumber(o.CANTIDAD || o.Cantidad);
+                if (store === 'PAV') ventasAV += qty;
+                else if (store === 'SJ') ventasSJ += qty;
+                else if (store === 'BQ') ventasBQ += qty;
+            });
+            
+            // Inventario en la fecha de corte
+            let stockCorteAV = inventarioInicialAV + comprasAV - ventasAV;
+            let stockCorteSJ = inventarioInicialSJ + comprasSJ - ventasSJ;
+            let stockCorteBQ = inventarioInicialBQ + comprasBQ - ventasBQ;
+            
+            stockCorteAV = Math.max(0, stockCorteAV);
+            stockCorteSJ = Math.max(0, stockCorteSJ);
+            stockCorteBQ = Math.max(0, stockCorteBQ);
+            
+            if (!selectedStore) {
+                return {
+                    av: stockCorteAV,
+                    sj: stockCorteSJ,
+                    bq: stockCorteBQ,
+                    total: stockCorteAV + stockCorteSJ + stockCorteBQ
+                };
+            }
+            
+            if (selectedStore === 'AV') {
+                return { av: stockCorteAV, sj: 0, bq: 0, total: stockCorteAV };
+            } else if (selectedStore === 'SJ') {
+                return { av: 0, sj: stockCorteSJ, bq: 0, total: stockCorteSJ };
+            } else if (selectedStore === 'BQ') {
+                return { av: 0, sj: 0, bq: stockCorteBQ, total: stockCorteBQ };
+            }
+            
+            return { av: 0, sj: 0, bq: 0, total: 0 };
+        }
+
         function calculateFilteredKPIs(data) {
-            let totalVal = 0, totalUnits = 0, stockAV = 0, valAV = 0, stockSJ = 0, valSJ = 0, stockBQ = 0, valBQ = 0;
+            let totalVal = 0, totalUnits = 0;
+            let stockAV = 0, valAV = 0, stockSJ = 0, valSJ = 0, stockBQ = 0, valBQ = 0;
             const selectedStore = document.getElementById('filterStore').value;
             const dateFrom = document.getElementById('filterDateFrom').value;
             const dateTo = document.getElementById('filterDateTo').value;
             const fromDate = dateFrom ? parseDate(dateFrom) : null;
             const toDate = dateTo ? parseDate(dateTo) : null;
 
+            // STOCK: calculado en base a la fecha de corte (dateTo)
+            // "Movimientos Desde" (dateFrom) NO afecta el stock
             data.forEach(item => {
-                const qtyAV = parseNumber(item.CANTIDADAV);
-                const qtySJ = parseNumber(item.CANTIDADSJ);
-                const qtyBQ = parseNumber(item.CANTIDADBQ);
                 const cost = parseNumber(item.COSTOREPOSICION);
-
-                stockAV += qtyAV; valAV += (qtyAV * cost);
-                stockSJ += qtySJ; valSJ += (qtySJ * cost);
-                stockBQ += qtyBQ; valBQ += (qtyBQ * cost);
-
-                let dynamicQty = qtyAV + qtySJ + qtyBQ;
-                if (selectedStore === 'AV') dynamicQty = qtyAV;
-                else if (selectedStore === 'SJ') dynamicQty = qtySJ;
-                else if (selectedStore === 'BQ') dynamicQty = qtyBQ;
-
+                const stock = calcularInventarioEnFecha(item.CODIGO, dateTo, selectedStore);
+                
+                let avQty = stock.av;
+                let sjQty = stock.sj;
+                let bqQty = stock.bq;
+                
+                stockAV += avQty;
+                valAV += (avQty * cost);
+                stockSJ += sjQty;
+                valSJ += (sjQty * cost);
+                stockBQ += bqQty;
+                valBQ += (bqQty * cost);
+                
+                let dynamicQty = avQty + sjQty + bqQty;
                 totalUnits += dynamicQty;
                 totalVal += (dynamicQty * cost);
             });
@@ -573,9 +690,9 @@
             document.getElementById('kpi-total-val').innerText = currencyFormatter.format(totalVal);
             document.getElementById('kpi-total-units').innerText = unitFormatter.format(totalUnits);
 
+            // COMPRAS Y VENTAS DEL PERÍODO: afectadas por "Movimientos Desde" y "Movimientos Hasta"
             const filteredCodes = new Set(data.map(item => item.CODIGO));
 
-            // Filtrar Compras por tienda y fechas
             let filteredPurchases = purchasesData.filter(p => {
                 const cod = p.CODIGO || p.Código;
                 if (!filteredCodes.has(cod)) return false;
@@ -602,7 +719,6 @@
                 return sum + parseNumber(val);
             }, 0);
 
-            // Filtrar Ventas por tienda y fechas
             let filteredOrders = ordersData.filter(o => {
                 const cod = o.CODIGO || o.Código;
                 if (!filteredCodes.has(cod)) return false;
@@ -668,16 +784,18 @@
             }
 
             displayData.forEach(item => {
-                const qtyAV = parseNumber(item.CANTIDADAV), qtySJ = parseNumber(item.CANTIDADSJ), qtyBQ = parseNumber(item.CANTIDADBQ);
                 const cost = parseNumber(item.COSTOREPOSICION), price = parseNumber(item.PRECIO);
+                
+                // Stock en la fecha de corte (o actual si no hay fecha)
+                const stock = calcularInventarioEnFecha(item.CODIGO, dateTo, selectedStore);
+                let avQty = stock.av;
+                let sjQty = stock.sj;
+                let bqQty = stock.bq;
 
-                let dynamicTotalQty = qtyAV + qtySJ + qtyBQ;
-                if (selectedStore === 'AV') dynamicTotalQty = qtyAV;
-                else if (selectedStore === 'SJ') dynamicTotalQty = qtySJ;
-                else if (selectedStore === 'BQ') dynamicTotalQty = qtyBQ;
-
+                let dynamicTotalQty = avQty + sjQty + bqQty;
                 const dynamicTotalVal = dynamicTotalQty * cost;
                 
+                // Compras y ventas del período (afectadas por "Movimientos Desde" y "Movimientos Hasta")
                 const filteredPurchases = getFilteredPurchases(item.CODIGO, selectedStore, fromDate, toDate);
                 let boughtQty = 0;
                 filteredPurchases.forEach(p => {
@@ -701,9 +819,9 @@
                     <td class="text-center text-red-700 font-bold bg-red-50/50">${soldQty > 0 ? unitFormatter.format(soldQty) : '-'}</td>
                     <td class="text-right text-sm text-gray-600 num-format">${currencyFormatter.format(cost)}</td>
                     <td class="text-right text-sm font-bold text-green-700 num-format">${currencyFormatter.format(price)}</td>
-                    <td class="text-center ${qtyAV > 0 ? 'bg-yellow-50 font-bold text-yellow-700' : 'text-gray-300'}">${qtyAV}</td>
-                    <td class="text-center ${qtySJ > 0 ? 'bg-green-50 font-bold text-green-700' : 'text-gray-300'}">${qtySJ}</td>
-                    <td class="text-center ${qtyBQ > 0 ? 'bg-indigo-50 font-bold text-indigo-700' : 'text-gray-300'}">${qtyBQ}</td>
+                    <td class="text-center ${avQty > 0 ? 'bg-yellow-50 font-bold text-yellow-700' : 'text-gray-300'}">${avQty}</td>
+                    <td class="text-center ${sjQty > 0 ? 'bg-green-50 font-bold text-green-700' : 'text-gray-300'}">${sjQty}</td>
+                    <td class="text-center ${bqQty > 0 ? 'bg-indigo-50 font-bold text-indigo-700' : 'text-gray-300'}">${bqQty}</td>
                     <td class="text-right font-bold bg-gray-100 text-gray-900 px-2">${dynamicTotalQty}</td>
                     <td class="text-right font-bold text-blue-900 bg-gray-100 num-format px-2">${currencyFormatter.format(dynamicTotalVal)}</td>
                     <td class="text-xs text-gray-500 italic max-w-xs truncate" title="${item.APLICACION}">${item.APLICACION || '-'}</td>
@@ -736,11 +854,15 @@
             const toDate = dateTo ? parseDate(dateTo) : null;
 
             const excelRows = dataToExport.map(item => {
-                const qtyAV = parseNumber(item.CANTIDADAV);
-                const qtySJ = parseNumber(item.CANTIDADSJ);
-                const qtyBQ = parseNumber(item.CANTIDADBQ);
                 const cost = parseNumber(item.COSTOREPOSICION);
                 const price = parseNumber(item.PRECIO);
+                
+                const stock = calcularInventarioEnFecha(item.CODIGO, dateTo, selectedStore);
+                let avQty = stock.av;
+                let sjQty = stock.sj;
+                let bqQty = stock.bq;
+
+                let dynamicQty = avQty + sjQty + bqQty;
 
                 const filteredPurchases = getFilteredPurchases(item.CODIGO, selectedStore, fromDate, toDate);
                 let boughtQty = 0;
@@ -754,23 +876,18 @@
                     soldQty += parseNumber(o.CANTIDAD || o.Cantidad);
                 });
 
-                let dynamicQty = qtyAV + qtySJ + qtyBQ;
-                if (selectedStore === 'AV') dynamicQty = qtyAV;
-                else if (selectedStore === 'SJ') dynamicQty = qtySJ;
-                else if (selectedStore === 'BQ') dynamicQty = qtyBQ;
-
                 return {
                     'Código': item.CODIGO,
                     'Artículo': item.ARTICULO,
                     'Aplicación': item.APLICACION || '',
                     'Proveedor': item.PROVEEDOR || '',
-                    'Compradas': boughtQty,
-                    'Vendidas': soldQty,
+                    'Compradas (Período)': boughtQty,
+                    'Vendidas (Período)': soldQty,
                     'Costo Rep.': cost,
                     'Precio': price,
-                    'Stock AV': qtyAV,
-                    'Stock SJ': qtySJ,
-                    'Stock BQ': qtyBQ,
+                    'Stock AV': avQty,
+                    'Stock SJ': sjQty,
+                    'Stock BQ': bqQty,
                     'Total Stock': dynamicQty,
                     'Valor Total ($)': dynamicQty * cost
                 };
